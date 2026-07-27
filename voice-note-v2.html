@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="録音ノート">
+<title>録音ノート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#17140f; --panel:#221d16; --line:#3a3226;
+    --cream:#ede3cf; --dim:#a89a82;
+    --brass:#c99a4b; --brass-dim:#8a6e3c;
+    --rec:#c4462b; --sage:#7c8b5f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(1200px 600px at 50% -200px,#241f16 0%,var(--bg) 60%),var(--bg);
+    color:var(--cream);font-family:'Zen Kaku Gothic New',sans-serif;
+    -webkit-font-smoothing:antialiased;padding:26px 16px 70px;min-height:100vh;
+  }
+  .wrap{max-width:620px;margin:0 auto;}
+
+  header{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+  .reels{position:relative;width:64px;height:40px;flex:none;}
+  .reel{position:absolute;top:0;width:38px;height:38px;border-radius:50%;
+    border:3px solid var(--brass-dim);
+    background:radial-gradient(circle at center,var(--panel) 0 30%,transparent 31%),
+      repeating-conic-gradient(var(--brass-dim) 0deg 8deg,transparent 8deg 45deg);}
+  .reel.left{left:0;} .reel.right{right:0;}
+  .reel.spin{animation:spin 2.6s linear infinite;border-color:var(--rec);
+    background:radial-gradient(circle at center,var(--panel) 0 30%,transparent 31%),
+      repeating-conic-gradient(var(--rec) 0deg 8deg,transparent 8deg 45deg);}
+  .tape{position:absolute;top:17px;left:16px;width:32px;height:2px;background:var(--brass-dim);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion:reduce){.reel.spin{animation:none;}}
+  h1{font-family:'Zen Old Mincho',serif;font-size:22px;margin:0;font-weight:700;}
+  .sub{color:var(--dim);font-size:12.5px;margin-top:4px;}
+
+  details.setup{margin-bottom:22px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:2px 16px;}
+  details.setup summary{cursor:pointer;padding:12px 0;font-size:13px;color:var(--brass);
+    list-style:none;display:flex;align-items:center;gap:8px;}
+  details.setup summary::-webkit-details-marker{display:none;}
+  details.setup summary::before{content:"⚙";}
+  .sb{padding:6px 0 16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--dim);line-height:1.7;}
+  .sb label{display:block;margin-top:14px;color:var(--cream);font-size:12px;}
+  .sb input,.sb select{width:100%;margin-top:6px;padding:10px 12px;border-radius:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--cream);
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;}
+  .hint{font-size:11.5px;margin-top:5px;color:var(--dim);}
+  .save-btn{margin-top:16px;padding:9px 16px;border-radius:8px;border:1px solid var(--brass-dim);
+    background:transparent;color:var(--brass);font-size:12.5px;cursor:pointer;}
+  .save-status{font-size:11.5px;color:var(--sage);margin-left:10px;}
+
+  .modes{display:flex;gap:8px;margin-bottom:16px;}
+  .mode{flex:1;padding:11px 8px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel);color:var(--dim);font-size:12.5px;cursor:pointer;text-align:center;}
+  .mode.on{border-color:var(--brass);color:var(--brass);background:#2a241a;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:18px;margin-bottom:18px;}
+
+  .rec-row{display:flex;align-items:center;gap:14px;}
+  .rec-btn{width:66px;height:66px;border-radius:50%;border:none;flex:none;
+    background:var(--rec);color:#fff;font-size:22px;cursor:pointer;
+    box-shadow:0 0 0 4px rgba(196,70,43,.18);}
+  .rec-btn.recording{animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(196,70,43,.18);}
+    50%{box-shadow:0 0 0 11px rgba(196,70,43,.07);}}
+  .timer{font-family:'JetBrains Mono',monospace;font-size:24px;color:var(--brass);}
+  canvas.vu{flex:1;height:34px;background:var(--bg);border-radius:6px;border:1px solid var(--line);}
+
+  textarea{width:100%;min-height:150px;padding:12px;border-radius:8px;margin-top:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--cream);
+    font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;line-height:1.75;resize:vertical;}
+  textarea::placeholder{color:#5a5342;}
+  .lbl{font-size:12px;color:var(--dim);margin-top:14px;display:block;}
+
+  .btn{width:100%;padding:15px;border-radius:10px;border:none;
+    background:var(--brass-dim);color:#17140f;font-weight:700;font-size:15px;cursor:pointer;margin-top:14px;}
+  .btn:disabled{opacity:.32;cursor:not-allowed;}
+  .btn.small{width:auto;padding:10px 16px;font-size:13px;background:transparent;
+    color:var(--brass);border:1px solid var(--brass-dim);}
+
+  .auto-row{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:12.5px;color:var(--dim);}
+  .auto-row input{width:17px;height:17px;accent-color:var(--brass);}
+
+  .prog{margin-top:16px;font-size:13px;line-height:2;}
+  .prog div{color:#5a5342;transition:.2s;}
+  .prog div.on{color:var(--brass);}
+  .prog div.ok{color:var(--sage);}
+  .prog div.ng{color:#e0836a;}
+
+  .doc-link{display:block;text-align:center;margin-top:16px;padding:15px;border-radius:10px;
+    background:var(--sage);color:#17140f;text-decoration:none;font-weight:700;font-size:15px;}
+  .err{color:#e0836a;font-size:12.5px;margin-top:10px;white-space:pre-wrap;}
+  audio{width:100%;margin-top:12px;}
+  code{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--brass);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="reels">
+    <div class="reel left" id="reelL"></div><div class="tape"></div>
+    <div class="reel right" id="reelR"></div>
+  </div>
+  <div>
+    <h1>録音ノート</h1>
+    <div class="sub">話す → 止める → Googleドキュメント完成</div>
+  </div>
+</header>
+
+<details class="setup" id="setupPanel">
+  <summary>初期設定</summary>
+  <div class="sb">
+    設定は2つだけです。一度入力すればこの端末に保存されます。
+
+    <label>Anthropic APIキー</label>
+    <input type="password" id="anthropicKey" placeholder="sk-ant-...">
+    <div class="hint">console.anthropic.com の「API Keys」から発行します。</div>
+
+    <label>要約に使うモデル</label>
+    <select id="modelSelect">
+      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5(高速・低コスト)</option>
+      <option value="claude-sonnet-5">Claude Sonnet 5(高品質)</option>
+    </select>
+
+    <label>Google Apps Script のURL</label>
+    <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="hint">
+      別紙「Apps Script 設定手順」の通りにスクリプトを公開し、発行された <code>/exec</code> で終わるURLを貼り付けてください。Google Cloud の設定やログインは不要です。
+    </div>
+
+    <label>ドキュメントの保存先フォルダ名(任意)</label>
+    <input type="text" id="folderName" placeholder="録音ノート">
+    <div class="hint">マイドライブ内にこの名前のフォルダを作って保存します。空欄ならマイドライブ直下です。</div>
+
+    <button class="save-btn" id="saveSetup">この端末に保存</button>
+    <span class="save-status" id="saveStatus"></span>
+  </div>
+</details>
+
+<div class="modes">
+  <div class="mode on" id="modeRec">録音して自動文字起こし</div>
+  <div class="mode" id="modeDict">キーボードの音声入力</div>
+</div>
+
+<div class="card">
+  <div id="recArea">
+    <div class="rec-row">
+      <button class="rec-btn" id="recBtn">●</button>
+      <div class="timer" id="timer">00:00</div>
+      <canvas class="vu" id="vu"></canvas>
+    </div>
+    <div class="auto-row">
+      <input type="checkbox" id="autoChk" checked>
+      <label for="autoChk" style="margin:0;color:var(--dim);font-size:12.5px;">停止したら要約とドキュメント作成まで自動で行う</label>
+    </div>
+    <audio id="playback" controls style="display:none;"></audio>
+  </div>
+
+  <div id="dictArea" style="display:none;">
+    <div style="font-size:13px;color:var(--dim);line-height:1.8;">
+      下の入力欄をタップし、キーボード右下のマイクボタン(🎤)を押して話してください。iOS標準の音声入力を使うため、認識精度が安定します。話し終えたらキーボードを閉じてボタンを押します。
+    </div>
+  </div>
+
+  <label class="lbl">文字起こし(編集できます)</label>
+  <textarea id="transcript" placeholder="ここに文字起こしが入ります。"></textarea>
+
+  <button class="btn" id="goBtn" disabled>要約してドキュメントを作成</button>
+
+  <div class="prog" id="prog" style="display:none;">
+    <div id="p1">① 要約を生成</div>
+    <div id="p2">② Googleドキュメントを作成</div>
+  </div>
+  <div id="linkArea"></div>
+  <div class="err" id="errArea"></div>
+</div>
+
+<div class="card" id="sumCard" style="display:none;">
+  <label class="lbl" style="margin-top:0;">要約結果</label>
+  <textarea id="summary"></textarea>
+  <button class="btn small" id="redoBtn">この内容で作り直す</button>
+</div>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const K = {key:'vn2_key', model:'vn2_model', gas:'vn2_gas', folder:'vn2_folder'};
+
+/* ---------- setup ---------- */
+function load(){
+  $('anthropicKey').value = localStorage.getItem(K.key) || '';
+  $('modelSelect').value  = localStorage.getItem(K.model) || 'claude-haiku-4-5-20251001';
+  $('gasUrl').value       = localStorage.getItem(K.gas) || '';
+  $('folderName').value   = localStorage.getItem(K.folder) || '';
+  if(!$('anthropicKey').value || !$('gasUrl').value) $('setupPanel').open = true;
+}
+$('saveSetup').addEventListener('click',()=>{
+  localStorage.setItem(K.key, $('anthropicKey').value.trim());
+  localStorage.setItem(K.model, $('modelSelect').value);
+  localStorage.setItem(K.gas, $('gasUrl').value.trim());
+  localStorage.setItem(K.folder, $('folderName').value.trim());
+  $('saveStatus').textContent = '保存しました ✔';
+  setTimeout(()=>$('saveStatus').textContent='',2500);
+});
+load();
+
+/* ---------- mode switch ---------- */
+let mode = 'rec';
+$('modeRec').addEventListener('click',()=>{
+  mode='rec'; $('modeRec').classList.add('on'); $('modeDict').classList.remove('on');
+  $('recArea').style.display=''; $('dictArea').style.display='none';
+});
+$('modeDict').addEventListener('click',()=>{
+  if(isRec) stopRec();
+  mode='dict'; $('modeDict').classList.add('on'); $('modeRec').classList.remove('on');
+  $('dictArea').style.display=''; $('recArea').style.display='none';
+});
+
+/* ---------- recording ---------- */
+const recBtn=$('recBtn'), timerEl=$('timer'), tEl=$('transcript'), vu=$('vu');
+const vctx=vu.getContext('2d');
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let isRec=false, recog=null, finalT='', mr=null, chunks=[], stream=null;
+let actx=null, ana=null, raf=null, tick=null, sec=0;
+
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function sizeVU(){vu.width=vu.clientWidth*devicePixelRatio;vu.height=vu.clientHeight*devicePixelRatio;}
+addEventListener('resize',sizeVU); sizeVU();
+
+function draw(){
+  if(!ana) return;
+  const d=new Uint8Array(ana.frequencyBinCount); ana.getByteFrequencyData(d);
+  const w=vu.width,h=vu.height; vctx.clearRect(0,0,w,h);
+  const n=28, st=Math.floor(d.length/n), bw=w/n;
+  for(let i=0;i<n;i++){
+    const v=d[i*st]/255, bh=Math.max(2,v*h);
+    vctx.fillStyle = v>0.75?'#c4462b':'#c99a4b';
+    vctx.fillRect(i*bw+bw*0.15,h-bh,bw*0.7,bh);
+  }
+  raf=requestAnimationFrame(draw);
+}
+
+async function startRec(){
+  finalT = tEl.value ? tEl.value+'\n' : '';
+  chunks=[]; sec=0; timerEl.textContent='00:00';
+  $('prog').style.display='none'; $('linkArea').innerHTML=''; $('errArea').textContent='';
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e){ $('errArea').textContent='マイクへのアクセスが許可されませんでした。'; return; }
+
+  try{
+    mr=new MediaRecorder(stream);
+    mr.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    mr.onstop=()=>{const b=new Blob(chunks,{type:'audio/webm'});
+      const p=$('playback'); p.src=URL.createObjectURL(b); p.style.display='block';};
+    mr.start();
+  }catch(e){}
+
+  try{
+    actx=new (window.AudioContext||window.webkitAudioContext)();
+    ana=actx.createAnalyser(); ana.fftSize=128;
+    actx.createMediaStreamSource(stream).connect(ana); draw();
+  }catch(e){}
+
+  if(SR){
+    recog=new SR(); recog.lang='ja-JP'; recog.continuous=true; recog.interimResults=true;
+    recog.onresult=ev=>{
+      let itm='';
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        const t=ev.results[i][0].transcript;
+        if(ev.results[i].isFinal) finalT+=t; else itm+=t;
+      }
+      tEl.value=finalT+itm; syncBtn();
+    };
+    recog.onend=()=>{ if(isRec){ try{recog.start();}catch(e){} } };
+    try{recog.start();}catch(e){}
+  }else{
+    $('errArea').textContent='このブラウザは自動文字起こしに未対応です。「キーボードの音声入力」モードをお使いください。';
+  }
+
+  isRec=true; recBtn.classList.add('recording'); recBtn.textContent='■';
+  $('reelL').classList.add('spin'); $('reelR').classList.add('spin');
+  tick=setInterval(()=>{sec++;timerEl.textContent=fmt(sec);},1000);
+}
+
+function stopRec(){
+  isRec=false; recBtn.classList.remove('recording'); recBtn.textContent='●';
+  $('reelL').classList.remove('spin'); $('reelR').classList.remove('spin');
+  clearInterval(tick);
+  if(recog){try{recog.stop();}catch(e){} recog=null;}
+  if(mr&&mr.state!=='inactive') mr.stop();
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  if(raf) cancelAnimationFrame(raf);
+  vctx.clearRect(0,0,vu.width,vu.height);
+  if(actx){actx.close();actx=null;} ana=null;
+  syncBtn();
+  if($('autoChk').checked && tEl.value.trim()) setTimeout(runAll, 600);
+}
+
+recBtn.addEventListener('click',()=>{ isRec?stopRec():startRec(); });
+
+function syncBtn(){ $('goBtn').disabled = tEl.value.trim().length===0; }
+tEl.addEventListener('input',syncBtn);
+
+/* ---------- pipeline ---------- */
+function mark(el,cls){ const e=$(el); e.className=cls; }
+
+async function summarize(text){
+  const key=localStorage.getItem(K.key);
+  if(!key) throw new Error('Anthropic APIキーが未設定です。初期設定から登録してください。');
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,
+      'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({
+      model: localStorage.getItem(K.model)||'claude-haiku-4-5-20251001',
+      max_tokens:1500,
+      messages:[{role:'user',content:
+        '以下は音声から文字起こしした内容です。次の形式で日本語で出力してください。\n'+
+        '1行目にこの内容を表す簡潔なタイトルのみを書き、2行目に「---」を書き、3行目以降に要点をMarkdownの箇条書きで整理してください。決定事項やToDoがあれば見出しを分けてください。前置きは不要です。\n\n---\n'+text})]
+    })
+  });
+  if(!res.ok) throw new Error('要約に失敗しました('+res.status+')\n'+(await res.text()).slice(0,200));
+  const d=await res.json();
+  const out=(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+  const i=out.indexOf('---');
+  if(i>0 && i<80) return {title:out.slice(0,i).trim(), body:out.slice(i+3).trim()};
+  return {title:'', body:out};
+}
+
+async function toDoc(title, summary, transcript){
+  const url=localStorage.getItem(K.gas);
+  if(!url) throw new Error('Apps Script のURLが未設定です。初期設定から登録してください。');
+  const res=await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify({title,summary,transcript,folder:localStorage.getItem(K.folder)||''})
+  });
+  if(!res.ok) throw new Error('ドキュメント作成に失敗しました('+res.status+')');
+  const d=await res.json();
+  if(!d.ok) throw new Error('Apps Script エラー: '+(d.error||'不明'));
+  return d.url;
+}
+
+async function runAll(){
+  const text=tEl.value.trim();
+  if(!text) return;
+  $('goBtn').disabled=true; $('errArea').textContent=''; $('linkArea').innerHTML='';
+  $('prog').style.display='block'; mark('p1','on'); mark('p2','');
+
+  let s;
+  try{
+    s = await summarize(text);
+    $('summary').value = s.body; $('sumCard').style.display='block';
+    mark('p1','ok');
+  }catch(e){
+    mark('p1','ng'); $('errArea').textContent=e.message; $('goBtn').disabled=false; return;
+  }
+
+  mark('p2','on');
+  try{
+    const now=new Date();
+    const stamp=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+
+      String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+
+      String(now.getMinutes()).padStart(2,'0');
+    const title=(s.title? s.title : '録音ノート')+' '+stamp;
+    const url=await toDoc(title, s.body, text);
+    mark('p2','ok');
+    $('linkArea').innerHTML='<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">ドキュメントを開く →</a>';
+  }catch(e){
+    mark('p2','ng'); $('errArea').textContent=e.message;
+  }finally{ $('goBtn').disabled=false; }
+}
+
+$('goBtn').addEventListener('click', runAll);
+$('redoBtn').addEventListener('click', async ()=>{
+  const body=$('summary').value.trim();
+  if(!body) return;
+  $('errArea').textContent=''; $('linkArea').innerHTML='';
+  $('prog').style.display='block'; mark('p1','ok'); mark('p2','on');
+  try{
+    const now=new Date();
+    const stamp=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+
+      String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+
+      String(now.getMinutes()).padStart(2,'0');
+    const url=await toDoc('録音ノート '+stamp, body, tEl.value.trim());
+    mark('p2','ok');
+    $('linkArea').innerHTML='<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">ドキュメントを開く →</a>';
+  }catch(e){ mark('p2','ng'); $('errArea').textContent=e.message; }
+});
+
+})();
+</script>
+</body>
+</html>
