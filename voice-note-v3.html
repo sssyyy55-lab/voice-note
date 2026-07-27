@@ -130,12 +130,17 @@
     <label>使うモデル</label>
     <select id="gemModel">
       <option value="auto">自動(使えるものを順に試す)</option>
-      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-      <option value="gemini-3-flash">gemini-3-flash</option>
       <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+      <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+      <option value="gemini-flash-lite-latest">gemini-flash-lite-latest</option>
+      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
       <option value="gemini-flash-latest">gemini-flash-latest</option>
+      <option value="custom">手入力する(下の欄に記入)</option>
     </select>
-    <div class="hint">通常は「自動」のままで大丈夫です。</div>
+    <div class="hint">まずは「自動」でお試しください。429エラーが出る場合は、AI Studio の「レート制限」で無料枠が残っているモデル名を確認して指定してください。</div>
+
+    <label>モデル名を手入力(上で「手入力する」を選んだ場合)</label>
+    <input type="text" id="gemModelCustom" placeholder="例: gemini-2.0-flash">
 
     <label>Google Apps Script のURL</label>
     <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec">
@@ -200,12 +205,13 @@
 (function(){
 "use strict";
 const $ = id => document.getElementById(id);
-const K = {key:'vn3_gemkey', model:'vn3_model', gas:'vn3_gas', folder:'vn3_folder'};
+const K = {key:'vn3_gemkey', model:'vn3_model', custom:'vn3_custom', gas:'vn3_gas', folder:'vn3_folder'};
 
 /* ---------- setup ---------- */
 function load(){
   $('gemKey').value    = localStorage.getItem(K.key) || '';
   $('gemModel').value  = localStorage.getItem(K.model) || 'auto';
+  $('gemModelCustom').value = localStorage.getItem(K.custom) || '';
   $('gasUrl').value    = localStorage.getItem(K.gas) || '';
   $('folderName').value= localStorage.getItem(K.folder) || '';
   if(!$('gemKey').value || !$('gasUrl').value) $('setupPanel').open = true;
@@ -213,6 +219,7 @@ function load(){
 $('saveSetup').addEventListener('click',()=>{
   localStorage.setItem(K.key, $('gemKey').value.trim());
   localStorage.setItem(K.model, $('gemModel').value);
+  localStorage.setItem(K.custom, $('gemModelCustom').value.trim());
   localStorage.setItem(K.gas, $('gasUrl').value.trim());
   localStorage.setItem(K.folder, $('folderName').value.trim());
   $('saveStatus').textContent = '保存しました ✔';
@@ -316,7 +323,14 @@ function syncBtn(){ $('goBtn').disabled = tEl.value.trim().length===0; }
 tEl.addEventListener('input',syncBtn);
 
 /* ---------- Gemini summarize ---------- */
-const FALLBACK_MODELS = ['gemini-2.5-flash','gemini-3-flash','gemini-2.0-flash','gemini-flash-latest'];
+const FALLBACK_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-2.0-flash-lite'
+];
 
 async function callGemini(model, key, prompt){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
@@ -341,7 +355,12 @@ async function callGemini(model, key, prompt){
 async function summarize(text){
   const key = localStorage.getItem(K.key);
   if(!key) throw new Error('Gemini APIキーが未設定です。初期設定から登録してください。');
-  const chosen = localStorage.getItem(K.model) || 'auto';
+  let chosen = localStorage.getItem(K.model) || 'auto';
+  if(chosen === 'custom'){
+    const c = (localStorage.getItem(K.custom) || '').trim();
+    if(!c) throw new Error('モデル名が手入力されていません。初期設定を確認してください。');
+    chosen = c;
+  }
   const models = chosen === 'auto' ? FALLBACK_MODELS : [chosen];
 
   const prompt =
@@ -349,6 +368,7 @@ async function summarize(text){
     '1行目にこの内容を表す簡潔なタイトルのみを書き、2行目に「---」を書き、3行目以降に要点をMarkdownの箇条書きで整理してください。決定事項やToDoがあれば見出しを分けてください。前置きは不要です。\n\n---\n' + text;
 
   let lastErr = null;
+  const tried = [];
   for(const m of models){
     try{
       const out = await callGemini(m, key, prompt);
@@ -358,11 +378,21 @@ async function summarize(text){
       return { title:'', body: out };
     }catch(e){
       lastErr = e;
-      // モデル名が無効(404)なら次の候補へ、それ以外は即中断
-      if(e.status !== 404 && e.status !== 400) break;
+      tried.push(m + '(' + (e.status || '?') + ')');
+      // 404=モデル名が無効 / 400=リクエスト不正 / 429=枠切れ の場合は次の候補へ
+      if(e.status !== 404 && e.status !== 400 && e.status !== 429) break;
     }
   }
-  throw new Error('要約に失敗しました。\n' + (lastErr ? lastErr.message : '原因不明'));
+  if(lastErr && lastErr.status === 429){
+    throw new Error(
+      '無料枠の上限に達しているようです。\n' +
+      '試したモデル: ' + tried.join(', ') + '\n\n' +
+      'AI Studio の「レート制限」ページで、無料枠が残っているモデル名を確認し、初期設定で直接指定してください。\n' +
+      '(1分ほど待ってから再実行すると通ることもあります)'
+    );
+  }
+  throw new Error('要約に失敗しました。\n試したモデル: ' + tried.join(', ') + '\n' +
+    (lastErr ? lastErr.message : '原因不明'));
 }
 
 /* ---------- Google Docs via Apps Script ---------- */
