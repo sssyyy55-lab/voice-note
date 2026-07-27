@@ -6,6 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="録音ノート">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17140f">
 <title>録音ノート</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -270,10 +275,24 @@ async function startRec(){
   catch(e){ $('errArea').textContent='マイクへのアクセスが許可されませんでした。'; return; }
 
   try{
-    mr=new MediaRecorder(stream);
+    // iOS Safari は webm 非対応。対応形式を自動判定する
+    let opts = {};
+    const cands = ['audio/webm;codecs=opus','audio/webm','audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac'];
+    if(window.MediaRecorder && MediaRecorder.isTypeSupported){
+      for(const c of cands){
+        if(MediaRecorder.isTypeSupported(c)){ opts = {mimeType:c}; break; }
+      }
+    }
+    mr = new MediaRecorder(stream, opts);
     mr.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
-    mr.onstop=()=>{const b=new Blob(chunks,{type:'audio/webm'});
-      const p=$('playback'); p.src=URL.createObjectURL(b); p.style.display='block';};
+    mr.onstop=()=>{
+      if(!chunks.length){ return; }
+      const type = (mr && mr.mimeType) ? mr.mimeType : (chunks[0].type || 'audio/mp4');
+      const b = new Blob(chunks, {type: type});
+      const p = $('playback');
+      p.src = URL.createObjectURL(b);
+      p.style.display = 'block';
+    };
     mr.start();
   }catch(e){}
 
@@ -399,13 +418,31 @@ async function summarize(text){
 async function toDoc(title, summary, transcript){
   const url = localStorage.getItem(K.gas);
   if(!url) throw new Error('Apps Script のURLが未設定です。初期設定から登録してください。');
-  const res = await fetch(url, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body: JSON.stringify({title, summary, transcript, folder: localStorage.getItem(K.folder)||''})
-  });
+
+  // 応答が返らないまま固まるのを防ぐ(60秒で打ち切り)
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(()=>ctrl.abort(), 60000) : null;
+
+  let res;
+  try{
+    res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({title, summary, transcript, folder: localStorage.getItem(K.folder)||''}),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+  }catch(e){
+    if(timer) clearTimeout(timer);
+    if(e.name === 'AbortError') throw new Error('Googleドキュメントの作成が時間内に終わりませんでした。通信環境を確認して、もう一度お試しください。');
+    throw new Error('Apps Script に接続できませんでした。URLが正しいか、デプロイのアクセス権が「全員」になっているか確認してください。\n' + e.message);
+  }
+  if(timer) clearTimeout(timer);
+
   if(!res.ok) throw new Error('ドキュメント作成に失敗しました('+res.status+')');
-  const d = await res.json();
+  const raw = await res.text();
+  let d;
+  try{ d = JSON.parse(raw); }
+  catch(e){ throw new Error('Apps Script から予期しない応答が返りました。デプロイをやり直してみてください。\n' + raw.slice(0,200)); }
   if(!d.ok) throw new Error('Apps Script エラー: ' + (d.error || '不明'));
   return d.url;
 }
