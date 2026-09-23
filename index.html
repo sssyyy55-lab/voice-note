@@ -153,14 +153,18 @@
 
     <label>Google Apps Script のURL</label>
     <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec">
-    <div class="hint">設定済みのウェブアプリURL(<code>/exec</code> で終わるもの)を貼り付けてください。</div>
+    <div class="hint">
+      必ず <code>/exec</code> で終わるURLを貼り付けてください。<br>
+      ブラウザで開いたあとアドレスバーに出る <code>script.googleusercontent.com</code> のURLは<b>別物</b>です。デプロイ完了画面に表示されたURLを使ってください。
+    </div>
 
     <label>保存先フォルダ名(任意)</label>
     <input type="text" id="folderName" placeholder="録音ノート">
     <div class="hint">マイドライブ内にこの名前のフォルダを作って保存します。</div>
 
     <button class="save-btn" id="saveSetup">この端末に保存</button>
-    <span class="save-status" id="saveStatus"></span>
+    <button class="save-btn" id="testSetup" style="margin-left:8px;">接続をテスト</button>
+    <div class="save-status" id="saveStatus" style="margin-left:0;margin-top:12px;display:block;white-space:pre-wrap;line-height:1.8;"></div>
   </div>
 </details>
 
@@ -225,7 +229,7 @@
   font-size:11.5px;color:#6b6252;line-height:1.9;text-align:center;">
   個人が制作したアプリです。動作や要約内容の正確性を保証するものではありません。<br>
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
-  <a href="setup.html#" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a>
+  <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a>
 </footer>
 
 </div>
@@ -254,14 +258,86 @@ function load(){
     panel.parentNode.insertBefore(b, panel);
   }
 }
+/* ---------- 接続テスト ---------- */
+function setStatus(msg, color){
+  const el = $('saveStatus');
+  el.textContent = msg;
+  el.style.color = color || 'var(--sage)';
+}
+
+$('testSetup').addEventListener('click', async ()=>{
+  const key = $('gemKey').value.trim();
+  const url = $('gasUrl').value.trim();
+  const btn = $('testSetup');
+
+  if(!key && !url){ setStatus('APIキーとURLを入力してから押してください。', '#e0836a'); return; }
+
+  btn.disabled = true;
+  setStatus('確認しています...', 'var(--brass)');
+  const lines = [];
+
+  // --- Gemini APIキー ---
+  if(!key){
+    lines.push('× APIキー: 未入力です');
+  }else if(!/^AIza/.test(key)){
+    lines.push('× APIキー: AIza で始まっていません。別のものを貼っていないか確認してください');
+  }else{
+    try{
+      const r = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key));
+      if(r.ok){
+        lines.push('○ APIキー: 使えます');
+      }else if(r.status === 400 || r.status === 403){
+        lines.push('× APIキー: 認証できませんでした。キーが正しいか確認してください');
+      }else{
+        lines.push('△ APIキー: 確認できませんでした(' + r.status + ')');
+      }
+    }catch(e){
+      lines.push('△ APIキー: 通信できませんでした。電波状況を確認してください');
+    }
+  }
+
+  // --- Apps Script URL ---
+  if(!url){
+    lines.push('× スクリプトURL: 未入力です');
+  }else if(url.indexOf('script.googleusercontent.com') !== -1){
+    lines.push('× スクリプトURL: これは転送先のURLです。デプロイ完了画面に出た script.google.com の方を使ってください');
+  }else if(!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)){
+    lines.push('× スクリプトURL: /exec で終わる形式になっていません');
+  }else{
+    try{
+      const r = await fetch(url, {method:'GET'});
+      const t = await r.text();
+      if(r.ok && t.indexOf('動作しています') !== -1){
+        lines.push('○ スクリプトURL: つながりました');
+      }else if(r.ok){
+        lines.push('△ スクリプトURL: 応答はありましたが内容が想定と違います。コードを貼り直してデプロイし直してください');
+      }else{
+        lines.push('× スクリプトURL: つながりません(' + r.status + ')。アクセス権が「全員」になっているか確認してください');
+      }
+    }catch(e){
+      lines.push('× スクリプトURL: つながりません。URLとアクセス権(全員)を確認してください');
+    }
+  }
+
+  const ng = lines.some(l => l.charAt(0) === '×');
+  const warn = lines.some(l => l.charAt(0) === '△');
+  lines.push('');
+  lines.push(ng ? '→ 上の × を直してから保存してください。'
+               : (warn ? '→ そのまま試してみて、うまくいかなければ設定を見直してください。'
+                       : '→ 準備ができています。「この端末に保存」を押してください。'));
+  setStatus(lines.join('\n'), ng ? '#e0836a' : (warn ? 'var(--brass)' : 'var(--sage)'));
+  btn.disabled = false;
+});
+
 $('saveSetup').addEventListener('click',()=>{
   localStorage.setItem(K.key, $('gemKey').value.trim());
   localStorage.setItem(K.model, $('gemModel').value);
   localStorage.setItem(K.custom, $('gemModelCustom').value.trim());
   localStorage.setItem(K.gas, $('gasUrl').value.trim());
   localStorage.setItem(K.folder, $('folderName').value.trim());
-  $('saveStatus').textContent = '保存しました ✔';
-  setTimeout(()=>$('saveStatus').textContent='',2500);
+  setStatus('保存しました ✔', 'var(--sage)');
+  setTimeout(()=>{ $('saveStatus').textContent=''; },2500);
 });
 load();
 
