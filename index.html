@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="録音ノート">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17140f">
+<title>録音ノート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#17140f; --panel:#221d16; --line:#3a3226;
+    --cream:#ede3cf; --dim:#a89a82;
+    --brass:#c99a4b; --brass-dim:#8a6e3c;
+    --rec:#c4462b; --sage:#7c8b5f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(1200px 600px at 50% -200px,#241f16 0%,var(--bg) 60%),var(--bg);
+    color:var(--cream);font-family:'Zen Kaku Gothic New',sans-serif;
+    -webkit-font-smoothing:antialiased;padding:26px 16px 70px;min-height:100vh;
+  }
+  .wrap{max-width:620px;margin:0 auto;}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+  .reels{position:relative;width:64px;height:40px;flex:none;}
+  .reel{position:absolute;top:0;width:38px;height:38px;border-radius:50%;
+    border:3px solid var(--brass-dim);
+    background:radial-gradient(circle at center,var(--panel) 0 30%,transparent 31%),
+      repeating-conic-gradient(var(--brass-dim) 0deg 8deg,transparent 8deg 45deg);}
+  .reel.left{left:0;} .reel.right{right:0;}
+  .reel.spin{animation:spin 2.6s linear infinite;border-color:var(--rec);
+    background:radial-gradient(circle at center,var(--panel) 0 30%,transparent 31%),
+      repeating-conic-gradient(var(--rec) 0deg 8deg,transparent 8deg 45deg);}
+  .tape{position:absolute;top:17px;left:16px;width:32px;height:2px;background:var(--brass-dim);}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion:reduce){.reel.spin{animation:none;}}
+  h1{font-family:'Zen Old Mincho',serif;font-size:22px;margin:0;font-weight:700;}
+  .sub{color:var(--dim);font-size:12.5px;margin-top:4px;}
+
+  details.setup{margin-bottom:22px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:2px 16px;}
+  details.setup summary{cursor:pointer;padding:12px 0;font-size:13px;color:var(--brass);
+    list-style:none;display:flex;align-items:center;gap:8px;}
+  details.setup summary::-webkit-details-marker{display:none;}
+  details.setup summary::before{content:"⚙";}
+  .sb{padding:6px 0 16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--dim);line-height:1.7;}
+  .sb label{display:block;margin-top:14px;color:var(--cream);font-size:12px;}
+  .sb input,.sb select{width:100%;margin-top:6px;padding:10px 12px;border-radius:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--cream);
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;}
+  .hint{font-size:11.5px;margin-top:5px;color:var(--dim);}
+  .hint a{color:var(--brass);}
+  .save-btn{margin-top:16px;padding:9px 16px;border-radius:8px;border:1px solid var(--brass-dim);
+    background:transparent;color:var(--brass);font-size:12.5px;cursor:pointer;}
+  .save-status{font-size:11.5px;color:var(--sage);margin-left:10px;}
+
+  .modes{display:flex;gap:8px;margin-bottom:16px;}
+  .mode{flex:1;padding:10px 6px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel);color:var(--dim);font-size:12.5px;cursor:pointer;text-align:center;
+    line-height:1.4;}
+  .mode span{display:block;font-size:10.5px;color:#6b6252;margin-top:3px;}
+  .mode.on{border-color:var(--brass);color:var(--brass);background:#2a241a;}
+  .mode.on span{color:var(--brass-dim);}
+  .mode-desc{font-size:12px;color:var(--dim);margin:-8px 0 16px;padding:0 2px;line-height:1.7;}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:18px;margin-bottom:18px;}
+  .rec-row{display:flex;align-items:center;gap:14px;}
+  .rec-btn{width:66px;height:66px;border-radius:50%;border:none;flex:none;
+    background:var(--rec);color:#fff;font-size:22px;cursor:pointer;
+    box-shadow:0 0 0 4px rgba(196,70,43,.18);}
+  .rec-btn.recording{animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(196,70,43,.18);}
+    50%{box-shadow:0 0 0 11px rgba(196,70,43,.07);}}
+  .timer{font-family:'JetBrains Mono',monospace;font-size:24px;color:var(--brass);}
+  canvas.vu{flex:1;height:34px;background:var(--bg);border-radius:6px;border:1px solid var(--line);}
+
+  textarea{width:100%;min-height:150px;padding:12px;border-radius:8px;margin-top:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--cream);
+    font-family:'Zen Kaku Gothic New',sans-serif;font-size:15px;line-height:1.75;resize:vertical;}
+  textarea::placeholder{color:#5a5342;}
+  .lbl{font-size:12px;color:var(--dim);margin-top:14px;display:block;}
+
+  .btn{width:100%;padding:15px;border-radius:10px;border:none;
+    background:var(--brass-dim);color:#17140f;font-weight:700;font-size:15px;cursor:pointer;margin-top:14px;}
+  .btn:disabled{opacity:.32;cursor:not-allowed;}
+  .btn.small{width:auto;padding:10px 16px;font-size:13px;background:transparent;
+    color:var(--brass);border:1px solid var(--brass-dim);}
+
+  .auto-row{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:12.5px;color:var(--dim);}
+  .auto-row input{width:17px;height:17px;accent-color:var(--brass);}
+
+  .prog{margin-top:16px;font-size:13px;line-height:2;}
+  .prog div{color:#5a5342;transition:.2s;}
+  .prog div.on{color:var(--brass);}
+  .prog div.ok{color:var(--sage);}
+  .prog div.ng{color:#e0836a;}
+
+  .doc-link{display:block;text-align:center;margin-top:16px;padding:15px;border-radius:10px;
+    background:var(--sage);color:#17140f;text-decoration:none;font-weight:700;font-size:15px;}
+  .err{color:#e0836a;font-size:12.5px;margin-top:10px;white-space:pre-wrap;}
+  audio{width:100%;margin-top:12px;}
+  code{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--brass);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="reels">
+    <div class="reel left" id="reelL"></div><div class="tape"></div>
+    <div class="reel right" id="reelR"></div>
+  </div>
+  <div>
+    <h1>録音ノート</h1>
+    <div class="sub">話す → 止める → Googleドキュメント完成</div>
+  </div>
+</header>
+
+<details class="setup" id="setupPanel">
+  <summary>初期設定</summary>
+  <div class="sb">
+    はじめての方は <a href="setup.html" style="color:var(--brass);font-weight:700;">セットアップガイド</a> をご覧ください(所要10分・無料)。設定は2つだけです。一度入力すればこの端末に保存されます。
+
+    <label>Gemini APIキー</label>
+    <input type="password" id="gemKey" placeholder="AIza...">
+    <div class="hint">
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> でGoogleアカウントにログインし「APIキーを作成」を押すだけで取得できます。クレジットカードの登録は不要で、無料枠のまま使えます。
+    </div>
+
+    <label>使うモデル</label>
+    <select id="gemModel">
+      <option value="auto">自動(使えるものを順に試す)</option>
+      <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+      <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+      <option value="gemini-flash-lite-latest">gemini-flash-lite-latest</option>
+      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+      <option value="gemini-flash-latest">gemini-flash-latest</option>
+      <option value="custom">手入力する(下の欄に記入)</option>
+    </select>
+    <div class="hint">まずは「自動」でお試しください。429エラーが出る場合は、AI Studio の「レート制限」で無料枠が残っているモデル名を確認して指定してください。</div>
+
+    <label>モデル名を手入力(上で「手入力する」を選んだ場合)</label>
+    <input type="text" id="gemModelCustom" placeholder="例: gemini-2.0-flash">
+
+    <label>Google Apps Script のURL</label>
+    <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="hint">設定済みのウェブアプリURL(<code>/exec</code> で終わるもの)を貼り付けてください。</div>
+
+    <label>保存先フォルダ名(任意)</label>
+    <input type="text" id="folderName" placeholder="録音ノート">
+    <div class="hint">マイドライブ内にこの名前のフォルダを作って保存します。</div>
+
+    <button class="save-btn" id="saveSetup">この端末に保存</button>
+    <span class="save-status" id="saveStatus"></span>
+  </div>
+</details>
+
+<div class="modes">
+  <div class="mode on" id="modeRealtime">近くの声<span>リアルタイム</span></div>
+  <div class="mode" id="modeFile">会場・遠くの声<span>AIが後から起こす</span></div>
+  <div class="mode" id="modeDict">音声入力<span>キーボード</span></div>
+</div>
+<div class="mode-desc" id="modeDesc">目の前の会話や自分の声に。話しながら文字が表示されます。</div>
+
+<div class="card">
+  <div id="recArea">
+    <div class="rec-row">
+      <button class="rec-btn" id="recBtn">●</button>
+      <div class="timer" id="timer">00:00</div>
+      <canvas class="vu" id="vu"></canvas>
+    </div>
+    <div class="auto-row">
+      <input type="checkbox" id="autoChk" checked>
+      <label for="autoChk" style="margin:0;color:var(--dim);font-size:12.5px;">停止したら要約とドキュメント作成まで自動で行う</label>
+    </div>
+    <audio id="playback" controls style="display:none;"></audio>
+  </div>
+
+  <div id="dictArea" style="display:none;">
+    <div style="font-size:13px;color:var(--dim);line-height:1.8;">
+      下の入力欄をタップし、キーボード右下のマイクボタンを押して話してください。iOS標準の音声入力を使うため認識が安定します。話し終えたらキーボードを閉じてボタンを押します。
+    </div>
+  </div>
+
+  <label class="lbl">この記録の種類</label>
+  <select id="docType" style="width:100%;margin-top:8px;padding:11px 12px;border-radius:8px;
+    border:1px solid var(--line);background:var(--bg);color:var(--cream);font-size:14px;
+    font-family:'Zen Kaku Gothic New',sans-serif;">
+    <option value="meeting">会議・打ち合わせ</option>
+    <option value="lecture">講演・研修</option>
+    <option value="class">授業・授業記録</option>
+    <option value="memo">思いつきメモ</option>
+  </select>
+
+  <label class="lbl">文字起こし(編集できます)</label>
+  <textarea id="transcript" placeholder="ここに文字起こしが入ります。"></textarea>
+
+  <button class="btn" id="goBtn" disabled>要約してドキュメントを作成</button>
+
+  <div class="prog" id="prog" style="display:none;">
+    <div id="p0" style="display:none;">① 音声から文字起こし</div>
+    <div id="p1">② 要約を生成</div>
+    <div id="p2">③ Googleドキュメントを作成</div>
+  </div>
+  <div id="linkArea"></div>
+  <div class="err" id="errArea"></div>
+</div>
+
+<div class="card" id="sumCard" style="display:none;">
+  <label class="lbl" style="margin-top:0;">要約結果</label>
+  <textarea id="summary"></textarea>
+  <button class="btn small" id="redoBtn">この内容で作り直す</button>
+</div>
+
+<footer style="margin-top:34px;padding-top:20px;border-top:1px solid var(--line);
+  font-size:11.5px;color:#6b6252;line-height:1.9;text-align:center;">
+  個人が制作したアプリです。動作や要約内容の正確性を保証するものではありません。<br>
+  録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
+  <a href="setup.html#" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a>
+</footer>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const K = {key:'vn3_gemkey', model:'vn3_model', custom:'vn3_custom', gas:'vn3_gas', folder:'vn3_folder'};
+
+/* ---------- setup ---------- */
+function load(){
+  $('gemKey').value    = localStorage.getItem(K.key) || '';
+  $('gemModel').value  = localStorage.getItem(K.model) || 'auto';
+  $('gemModelCustom').value = localStorage.getItem(K.custom) || '';
+  $('gasUrl').value    = localStorage.getItem(K.gas) || '';
+  $('folderName').value= localStorage.getItem(K.folder) || '';
+  if(!$('gemKey').value || !$('gasUrl').value){
+    $('setupPanel').open = true;
+    const b = document.createElement('div');
+    b.style.cssText = 'background:#2a241a;border:1px solid #c99a4b;border-radius:12px;padding:16px;margin-bottom:18px;font-size:13.5px;line-height:1.8;';
+    b.innerHTML = 'はじめてお使いの方へ<br>'
+      + '<span style="color:#a89a82;">使い始めるには、無料の設定が2つ必要です(10分ほど)。</span><br>'
+      + '<a href="setup.html" style="display:inline-block;margin-top:10px;padding:10px 18px;border-radius:8px;background:#8a6e3c;color:#17140f;text-decoration:none;font-weight:700;">セットアップガイドを開く →</a>';
+    const panel = $('setupPanel');
+    panel.parentNode.insertBefore(b, panel);
+  }
+}
+$('saveSetup').addEventListener('click',()=>{
+  localStorage.setItem(K.key, $('gemKey').value.trim());
+  localStorage.setItem(K.model, $('gemModel').value);
+  localStorage.setItem(K.custom, $('gemModelCustom').value.trim());
+  localStorage.setItem(K.gas, $('gasUrl').value.trim());
+  localStorage.setItem(K.folder, $('folderName').value.trim());
+  $('saveStatus').textContent = '保存しました ✔';
+  setTimeout(()=>$('saveStatus').textContent='',2500);
+});
+load();
+
+/* ---------- mode switch ---------- */
+let MODE = 'realtime';   // realtime | file | dict
+const MODE_DESC = {
+  realtime: '目の前の会話や自分の声に。話しながら文字が表示されます。',
+  file: '講演会場など、話者が離れている場面に。録音を止めたあと、AIが音声を聞いて文字起こしします。画面を消しても録音は続きます。',
+  dict: '入力欄をタップし、キーボードのマイクボタンから音声入力してください。端末標準の認識を使うため精度が安定します。'
+};
+function setMode(m){
+  if(isRec) stopRec();
+  MODE = m;
+  ['realtime','file','dict'].forEach(k=>{
+    const el = $('mode' + k.charAt(0).toUpperCase() + k.slice(1));
+    if(el) el.classList.toggle('on', k === m);
+  });
+  $('modeDesc').textContent = MODE_DESC[m];
+  $('recArea').style.display  = (m === 'dict') ? 'none' : '';
+  $('dictArea').style.display = (m === 'dict') ? '' : 'none';
+  $('goBtn').textContent = (m === 'file') ? '文字起こしして要約・ドキュメント作成' : '要約してドキュメントを作成';
+}
+$('modeRealtime').addEventListener('click',()=>setMode('realtime'));
+$('modeFile').addEventListener('click',()=>setMode('file'));
+$('modeDict').addEventListener('click',()=>setMode('dict'));
+setMode('realtime');
+
+/* ---------- recording ---------- */
+const recBtn=$('recBtn'), timerEl=$('timer'), tEl=$('transcript'), vu=$('vu');
+const vctx=vu.getContext('2d');
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let isRec=false, recog=null, finalT='', mr=null, chunks=[], stream=null;
+let lastBlob=null, pendingFileRun=false;
+let actx=null, ana=null, raf=null, tick=null, sec=0;
+
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function sizeVU(){vu.width=vu.clientWidth*devicePixelRatio;vu.height=vu.clientHeight*devicePixelRatio;}
+addEventListener('resize',sizeVU); sizeVU();
+
+function draw(){
+  if(!ana) return;
+  const d=new Uint8Array(ana.frequencyBinCount); ana.getByteFrequencyData(d);
+  const w=vu.width,h=vu.height; vctx.clearRect(0,0,w,h);
+  const n=28, st=Math.floor(d.length/n), bw=w/n;
+  for(let i=0;i<n;i++){
+    const v=d[i*st]/255, bh=Math.max(2,v*h);
+    vctx.fillStyle = v>0.75?'#c4462b':'#c99a4b';
+    vctx.fillRect(i*bw+bw*0.15,h-bh,bw*0.7,bh);
+  }
+  raf=requestAnimationFrame(draw);
+}
+
+let wakeLock = null;
+async function keepAwake(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      document.addEventListener('visibilitychange', async ()=>{
+        if(wakeLock !== null && document.visibilityState === 'visible' && isRec){
+          try{ wakeLock = await navigator.wakeLock.request('screen'); }catch(e){}
+        }
+      });
+    }
+  }catch(e){}
+}
+function releaseAwake(){
+  try{ if(wakeLock){ wakeLock.release(); wakeLock = null; } }catch(e){}
+}
+
+async function startRec(){
+  finalT = (MODE === 'file') ? '' : (tEl.value ? tEl.value+'\n' : '');
+  chunks=[]; sec=0; timerEl.textContent='00:00';
+  $('prog').style.display='none'; $('linkArea').innerHTML=''; $('errArea').textContent='';
+
+  // 会場モードでは、遠くの音声が削られないよう補正処理を切る
+  const audioConstraints = (MODE === 'file')
+    ? { echoCancellation:false, noiseSuppression:false, autoGainControl:false }
+    : true;
+
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio: audioConstraints}); }
+  catch(e){
+    try{ stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+    catch(e2){ $('errArea').textContent='マイクへのアクセスが許可されませんでした。'; return; }
+  }
+  keepAwake();
+
+  try{
+    // iOS Safari は webm 非対応。対応形式を自動判定する
+    let opts = {};
+    const cands = ['audio/webm;codecs=opus','audio/webm','audio/mp4;codecs=mp4a.40.2','audio/mp4','audio/aac'];
+    if(window.MediaRecorder && MediaRecorder.isTypeSupported){
+      for(const c of cands){
+        if(MediaRecorder.isTypeSupported(c)){ opts = {mimeType:c}; break; }
+      }
+    }
+    // 長時間でもファイルが膨らみすぎないよう音声ビットレートを抑える
+    opts.audioBitsPerSecond = 32000;
+    mr = new MediaRecorder(stream, opts);
+    mr.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+    mr.onstop=()=>{
+      if(!chunks.length){ lastBlob = null; return; }
+      const type = (mr && mr.mimeType) ? mr.mimeType : (chunks[0].type || 'audio/mp4');
+      const b = new Blob(chunks, {type: type});
+      lastBlob = b;
+      const p = $('playback');
+      p.src = URL.createObjectURL(b);
+      p.style.display = 'block';
+      if(pendingFileRun){ pendingFileRun = false; runAll(); }
+    };
+    mr.start();
+  }catch(e){}
+
+  try{
+    actx=new (window.AudioContext||window.webkitAudioContext)();
+    ana=actx.createAnalyser(); ana.fftSize=128;
+    actx.createMediaStreamSource(stream).connect(ana); draw();
+  }catch(e){}
+
+  if(SR && MODE === 'realtime'){
+    recog=new SR(); recog.lang='ja-JP'; recog.continuous=true; recog.interimResults=true;
+    recog.onresult=ev=>{
+      let itm='';
+      for(let i=ev.resultIndex;i<ev.results.length;i++){
+        const t=ev.results[i][0].transcript;
+        if(ev.results[i].isFinal) finalT+=t; else itm+=t;
+      }
+      tEl.value=finalT+itm; syncBtn();
+    };
+    recog.onend=()=>{ if(isRec){ try{recog.start();}catch(e){} } };
+    try{recog.start();}catch(e){}
+  }else if(MODE === 'realtime'){
+    $('errArea').textContent='このブラウザはリアルタイム文字起こしに未対応です。「会場・遠くの声」モードをお試しください。';
+  }
+
+  isRec=true; recBtn.classList.add('recording'); recBtn.textContent='■';
+  $('reelL').classList.add('spin'); $('reelR').classList.add('spin');
+  tick=setInterval(()=>{sec++;timerEl.textContent=fmt(sec);},1000);
+}
+
+function stopRec(){
+  if(!isRec) return;
+  isRec=false; recBtn.classList.remove('recording'); recBtn.textContent='●';
+  $('reelL').classList.remove('spin'); $('reelR').classList.remove('spin');
+  clearInterval(tick);
+  releaseAwake();
+  if(recog){try{recog.stop();}catch(e){} recog=null;}
+
+  const wasFile = (MODE === 'file');
+  const auto = $('autoChk').checked;
+  // 会場モードは録音データの確定を待ってから処理する
+  if(wasFile && auto) pendingFileRun = true;
+
+  if(mr&&mr.state!=='inactive') mr.stop();
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  if(raf) cancelAnimationFrame(raf);
+  vctx.clearRect(0,0,vu.width,vu.height);
+  if(actx){actx.close();actx=null;} ana=null;
+  syncBtn();
+
+  if(!wasFile && auto && tEl.value.trim()) setTimeout(runAll, 600);
+}
+
+recBtn.addEventListener('click',()=>{ isRec?stopRec():startRec(); });
+function syncBtn(){
+  $('goBtn').disabled = (MODE === 'file')
+    ? (!lastBlob && tEl.value.trim().length===0)
+    : (tEl.value.trim().length===0);
+}
+tEl.addEventListener('input',syncBtn);
+
+/* ---------- Gemini summarize ---------- */
+// 文字起こし用：軽量でも十分なので枠の緩いものを優先
+const FALLBACK_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-2.0-flash-lite'
+];
+// 要約用：構造の読み取りが必要なので読解力の高いものを優先
+const SUMMARY_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-2.0-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-flash-lite-latest'
+];
+
+async function callGemini(model, key, prompt){
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+    + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      contents:[{ parts:[{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 8192 }
+    })
+  });
+  const body = await res.text();
+  if(!res.ok){
+    const e = new Error(body.slice(0,300));
+    e.status = res.status;
+    throw e;
+  }
+  const d = JSON.parse(body);
+  const parts = (d.candidates && d.candidates[0] && d.candidates[0].content
+    && d.candidates[0].content.parts) || [];
+  return parts.map(p => p.text || '').join('').trim();
+}
+
+const PROMPTS = {
+  meeting:
+    '# 役割\n' +
+    'あなたは経験豊富な議事録作成者です。会議の音声を文字起こししたものを渡します。\n\n' +
+    '# 重要な方針\n' +
+    '・話された順にまとめるのではなく、「後で読む人が知りたいこと」の順に再構成すること\n' +
+    '・雑談や脱線は省く。ただし決定に影響した発言は残す\n' +
+    '・曖昧な表現は避け、誰が何をいつまでにやるのかを明確にする\n' +
+    '・文字起こしに書かれていないことを推測して補わない。不明な点は「(記録上は不明)」と書く\n' +
+    '・同じ話の繰り返しは1つにまとめる\n\n' +
+    '# 出力形式\n' +
+    '1行目: この会議を一言で表すタイトル(15文字程度、日付は入れない)\n' +
+    '2行目: ---\n' +
+    '3行目以降: 以下の見出しで整理する。該当がない見出しは省略してよい。\n\n' +
+    '## 決定したこと\n' +
+    '- 決まった事項を1件ずつ。何がどう決まったかを明確に書く\n\n' +
+    '## やること\n' +
+    '- [担当者] 内容(期限があれば明記。担当や期限が不明なら「担当未定」「期限未定」と書く)\n\n' +
+    '## 話し合った内容\n' +
+    '- 論点ごとにまとめる。異なる意見が出た場合は両論を併記する\n\n' +
+    '## 持ち越し・次回への課題\n' +
+    '- 結論が出なかったこと、次回に回されたこと\n\n' +
+    '前置きや結びの文は書かないこと。',
+
+  lecture:
+    '# 役割\n' +
+    'あなたは講演の記録係です。講演や研修の音声を文字起こししたものを渡します。\n\n' +
+    '# 重要な方針\n' +
+    '・話者の主張の骨格を捉える。listの羅列ではなく、論の流れが分かるようにする\n' +
+    '・具体例やエピソードは、主張を理解するのに必要なものだけ残す\n' +
+    '・印象的な言い回しがあれば「」で引用する(1〜2箇所まで)\n' +
+    '・文字起こしにないことを推測して補わない\n\n' +
+    '# 出力形式\n' +
+    '1行目: 講演内容を表すタイトル(15文字程度)\n' +
+    '2行目: ---\n' +
+    '3行目以降:\n\n' +
+    '## 主題\n' +
+    '- この講演で話者が一番伝えたかったことを2〜3行で\n\n' +
+    '## 内容の要点\n' +
+    '- 論の展開に沿って整理する\n\n' +
+    '## 印象に残った点\n' +
+    '- 具体例、データ、引用など\n\n' +
+    '## 自分の実務にどう活かせるか\n' +
+    '- 内容から導ける活用のヒント(推測であることが分かる書き方で)\n\n' +
+    '前置きや結びの文は書かないこと。',
+
+  class:
+    '# 役割\n' +
+    'あなたは授業記録の作成者です。授業の音声を文字起こししたものを渡します。\n\n' +
+    '# 出力形式\n' +
+    '1行目: 授業内容を表すタイトル(15文字程度)\n' +
+    '2行目: ---\n' +
+    '3行目以降:\n\n' +
+    '## 本時のねらい\n' +
+    '- 記録から読み取れる授業の目標\n\n' +
+    '## 授業の流れ\n' +
+    '- 導入・展開・まとめの順に、活動と発問を整理する\n\n' +
+    '## 児童生徒の反応・発言\n' +
+    '- 特徴的な発言やつまずき\n\n' +
+    '## 次に活かすこと\n' +
+    '- 記録から気づける改善点\n\n' +
+    '推測で補わず、記録にないことは書かないこと。前置きや結びの文も不要。',
+
+  memo:
+    '# 役割\n' +
+    'あなたは思考の整理を手伝う編集者です。話者が思いつくままに話した内容を渡します。\n\n' +
+    '# 重要な方針\n' +
+    '・断片的なアイデアを、意味のまとまりごとにグループ化する\n' +
+    '・話者自身が気づいていない関連性があれば指摘する\n' +
+    '・実行に移せそうなものは行動として切り出す\n\n' +
+    '# 出力形式\n' +
+    '1行目: 内容を表すタイトル(15文字程度)\n' +
+    '2行目: ---\n' +
+    '3行目以降:\n\n' +
+    '## アイデアの整理\n' +
+    '- テーマごとにまとめる\n\n' +
+    '## 具体的にできそうなこと\n' +
+    '- 行動に移せる形で\n\n' +
+    '## 気になる点・要検討\n' +
+    '- 未解決の疑問や、詰める必要がある部分\n\n' +
+    '前置きや結びの文は書かないこと。'
+};
+
+function buildPrompt(type, text){
+  const head = PROMPTS[type] || PROMPTS.meeting;
+  return head + '\n\n# 文字起こし\n\n' + text;
+}
+
+function resolveModels(purpose){
+  let chosen = localStorage.getItem(K.model) || 'auto';
+  if(chosen === 'custom'){
+    const c = (localStorage.getItem(K.custom) || '').trim();
+    if(!c) throw new Error('モデル名が手入力されていません。初期設定を確認してください。');
+    chosen = c;
+  }
+  if(chosen !== 'auto') return [chosen];
+  return (purpose === 'summary') ? SUMMARY_MODELS : FALLBACK_MODELS;
+}
+
+function blobToBase64(blob){
+  return new Promise((res, rej)=>{
+    const r = new FileReader();
+    r.onload = ()=> res(String(r.result).split(',')[1]);
+    r.onerror = ()=> rej(new Error('録音データを読み込めませんでした。'));
+    r.readAsDataURL(blob);
+  });
+}
+
+async function callGeminiAudio(model, key, base64, mime, prompt){
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
+    + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      contents:[{ parts:[
+        { text: prompt },
+        { inline_data: { mime_type: mime, data: base64 } }
+      ]}],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+    })
+  });
+  const body = await res.text();
+  if(!res.ok){
+    const e = new Error(body.slice(0,300));
+    e.status = res.status;
+    throw e;
+  }
+  const d = JSON.parse(body);
+  const parts = (d.candidates && d.candidates[0] && d.candidates[0].content
+    && d.candidates[0].content.parts) || [];
+  return parts.map(p => p.text || '').join('').trim();
+}
+
+async function transcribeAudio(blob){
+  const key = localStorage.getItem(K.key);
+  if(!key) throw new Error('Gemini APIキーが未設定です。初期設定から登録してください。');
+
+  const sizeMB = blob.size / (1024*1024);
+  if(sizeMB > 14){
+    throw new Error(
+      '録音が長すぎます(約' + sizeMB.toFixed(1) + 'MB)。\n' +
+      '一度に送れるのはおよそ40分ぶんまでです。\n' +
+      '長い講演は、区切りのよいところで一度停止してドキュメント化し、続きを録り直してください。'
+    );
+  }
+
+  const base64 = await blobToBase64(blob);
+  const mime = (blob.type || 'audio/mp4').split(';')[0];
+
+  const prompt =
+    'この音声を日本語で文字起こししてください。\n' +
+    '・聞き取れた発言をそのまま書き起こす\n' +
+    '・話者が変わったと思われるところで改行する\n' +
+    '・「えー」「あの」などのつなぎ言葉は省いてよい\n' +
+    '・聞き取れない箇所は(不明瞭)と書く\n' +
+    '・前置きや説明は不要。文字起こしの本文のみを出力する';
+
+  const models = resolveModels();
+  let lastErr = null;
+  const tried = [];
+  for(const m of models){
+    try{
+      const out = await callGeminiAudio(m, key, base64, mime, prompt);
+      if(!out) throw new Error('音声から文字を認識できませんでした。');
+      return out;
+    }catch(e){
+      lastErr = e;
+      tried.push(m + '(' + (e.status || '?') + ')');
+      if(e.status !== 404 && e.status !== 400 && e.status !== 429) break;
+    }
+  }
+  throw new Error('文字起こしに失敗しました。\n試したモデル: ' + tried.join(', ') + '\n' +
+    (lastErr ? lastErr.message : '原因不明'));
+}
+
+async function summarize(text){
+  const key = localStorage.getItem(K.key);
+  if(!key) throw new Error('Gemini APIキーが未設定です。初期設定から登録してください。');
+
+  const type = ($('docType') && $('docType').value) || 'meeting';
+  const prompt = buildPrompt(type, text);
+  const models = resolveModels('summary');
+
+  let lastErr = null;
+  const tried = [];
+  for(const m of models){
+    try{
+      const out = await callGemini(m, key, prompt);
+      if(!out) throw new Error('空の応答が返りました。');
+      const i = out.indexOf('---');
+      if(i > 0 && i < 80) return { title: out.slice(0,i).trim(), body: out.slice(i+3).trim() };
+      return { title:'', body: out };
+    }catch(e){
+      lastErr = e;
+      tried.push(m + '(' + (e.status || '?') + ')');
+      // 404=モデル名が無効 / 400=リクエスト不正 / 429=枠切れ の場合は次の候補へ
+      if(e.status !== 404 && e.status !== 400 && e.status !== 429) break;
+    }
+  }
+  if(lastErr && lastErr.status === 429){
+    throw new Error(
+      '無料枠の上限に達しているようです。\n' +
+      '試したモデル: ' + tried.join(', ') + '\n\n' +
+      'AI Studio の「レート制限」ページで、無料枠が残っているモデル名を確認し、初期設定で直接指定してください。\n' +
+      '(1分ほど待ってから再実行すると通ることもあります)'
+    );
+  }
+  throw new Error('要約に失敗しました。\n試したモデル: ' + tried.join(', ') + '\n' +
+    (lastErr ? lastErr.message : '原因不明'));
+}
+
+/* ---------- Google Docs via Apps Script ---------- */
+async function toDoc(title, summary, transcript){
+  const url = localStorage.getItem(K.gas);
+  if(!url) throw new Error('Apps Script のURLが未設定です。初期設定から登録してください。');
+
+  // 応答が返らないまま固まるのを防ぐ(60秒で打ち切り)
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(()=>ctrl.abort(), 60000) : null;
+
+  let res;
+  try{
+    res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({title, summary, transcript, folder: localStorage.getItem(K.folder)||''}),
+      signal: ctrl ? ctrl.signal : undefined
+    });
+  }catch(e){
+    if(timer) clearTimeout(timer);
+    if(e.name === 'AbortError') throw new Error('Googleドキュメントの作成が時間内に終わりませんでした。通信環境を確認して、もう一度お試しください。');
+    throw new Error('Apps Script に接続できませんでした。URLが正しいか、デプロイのアクセス権が「全員」になっているか確認してください。\n' + e.message);
+  }
+  if(timer) clearTimeout(timer);
+
+  if(!res.ok) throw new Error('ドキュメント作成に失敗しました('+res.status+')');
+  const raw = await res.text();
+  let d;
+  try{ d = JSON.parse(raw); }
+  catch(e){ throw new Error('Apps Script から予期しない応答が返りました。デプロイをやり直してみてください。\n' + raw.slice(0,200)); }
+  if(!d.ok) throw new Error('Apps Script エラー: ' + (d.error || '不明'));
+  return d.url;
+}
+
+/* ---------- pipeline ---------- */
+function mark(el,cls){ $(el).className = cls; }
+function stamp(){
+  const n=new Date();
+  return n.getFullYear()+'/'+String(n.getMonth()+1).padStart(2,'0')+'/'+
+    String(n.getDate()).padStart(2,'0')+' '+String(n.getHours()).padStart(2,'0')+':'+
+    String(n.getMinutes()).padStart(2,'0');
+}
+
+async function runAll(){
+  $('goBtn').disabled=true; $('errArea').textContent=''; $('linkArea').innerHTML='';
+  $('prog').style.display='block';
+  mark('p0',''); mark('p1',''); mark('p2','');
+
+  let text = tEl.value.trim();
+
+  // 会場モード：まず録音音声から文字起こし
+  const needTranscribe = (MODE === 'file') && lastBlob && !text;
+  $('p0').style.display = (MODE === 'file') ? 'block' : 'none';
+
+  if(needTranscribe){
+    mark('p0','on');
+    try{
+      text = await transcribeAudio(lastBlob);
+      tEl.value = text;
+      mark('p0','ok');
+    }catch(e){
+      mark('p0','ng'); $('errArea').textContent=e.message; $('goBtn').disabled=false; return;
+    }
+  }else if(MODE === 'file'){
+    mark('p0','ok');
+  }
+
+  if(!text){ $('goBtn').disabled=false; $('errArea').textContent='文字起こしする内容がありません。'; return; }
+
+  mark('p1','on');
+  let s;
+  try{
+    s = await summarize(text);
+    $('summary').value = s.body; $('sumCard').style.display='block';
+    mark('p1','ok');
+  }catch(e){
+    mark('p1','ng'); $('errArea').textContent=e.message; $('goBtn').disabled=false; return;
+  }
+
+  mark('p2','on');
+  try{
+    const title = (s.title ? s.title : '録音ノート') + ' ' + stamp();
+    const url = await toDoc(title, s.body, text);
+    mark('p2','ok');
+    $('linkArea').innerHTML = '<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">ドキュメントを開く →</a>';
+  }catch(e){
+    mark('p2','ng'); $('errArea').textContent=e.message;
+  }finally{ $('goBtn').disabled=false; }
+}
+
+$('goBtn').addEventListener('click', runAll);
+$('redoBtn').addEventListener('click', async ()=>{
+  const body = $('summary').value.trim();
+  if(!body) return;
+  $('errArea').textContent=''; $('linkArea').innerHTML='';
+  $('prog').style.display='block'; mark('p1','ok'); mark('p2','on');
+  try{
+    const url = await toDoc('録音ノート '+stamp(), body, tEl.value.trim());
+    mark('p2','ok');
+    $('linkArea').innerHTML = '<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">ドキュメントを開く →</a>';
+  }catch(e){ mark('p2','ng'); $('errArea').textContent=e.message; }
+});
+
+})();
+</script>
+</body>
+</html>

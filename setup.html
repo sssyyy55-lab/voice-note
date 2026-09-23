@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>録音ノート — はじめての設定</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#17140f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#17140f; --panel:#221d16; --line:#3a3226;
+    --cream:#ede3cf; --dim:#a89a82;
+    --brass:#c99a4b; --brass-dim:#8a6e3c; --sage:#7c8b5f; --rec:#c4462b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(1200px 600px at 50% -200px,#241f16 0%,var(--bg) 60%),var(--bg);
+    color:var(--cream);font-family:'Zen Kaku Gothic New',sans-serif;
+    -webkit-font-smoothing:antialiased;padding:28px 16px 90px;min-height:100vh;line-height:1.8;
+  }
+  .wrap{max-width:660px;margin:0 auto;}
+
+  header{margin-bottom:26px;}
+  h1{font-family:'Zen Old Mincho',serif;font-size:24px;margin:0 0 8px;font-weight:700;}
+  .lead{color:var(--dim);font-size:14px;}
+  .time-note{margin-top:14px;padding:12px 14px;border-radius:10px;
+    background:#2a241a;border:1px solid var(--line);font-size:13px;color:var(--dim);}
+  .time-note b{color:var(--brass);}
+
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:20px 18px;margin-bottom:16px;}
+  .step-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+  .num{width:30px;height:30px;border-radius:50%;flex:none;
+    border:2px solid var(--brass);color:var(--brass);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;}
+  .step h2{font-family:'Zen Old Mincho',serif;font-size:17px;margin:0;font-weight:700;}
+  .step p{font-size:14px;margin:10px 0;}
+  ol,ul{padding-left:20px;font-size:14px;}
+  li{margin:8px 0;}
+  a{color:var(--brass);}
+  .warn{background:#2e2118;border-left:3px solid var(--rec);padding:12px 14px;
+    border-radius:0 8px 8px 0;font-size:13px;margin:14px 0;color:var(--dim);}
+  .warn b{color:var(--cream);}
+  .tip{background:#212518;border-left:3px solid var(--sage);padding:12px 14px;
+    border-radius:0 8px 8px 0;font-size:13px;margin:14px 0;color:var(--dim);}
+
+  .codebox{position:relative;margin:14px 0;}
+  pre{background:#12100b;border:1px solid var(--line);border-radius:10px;
+    padding:16px 14px;overflow-x:auto;font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;line-height:1.65;color:#cfc3a8;max-height:280px;}
+  .copy-btn{position:absolute;top:10px;right:10px;padding:8px 14px;border-radius:8px;
+    border:1px solid var(--brass-dim);background:#221d16;color:var(--brass);
+    font-size:12px;cursor:pointer;font-family:'Zen Kaku Gothic New',sans-serif;}
+  .copy-btn.done{background:var(--sage);color:#17140f;border-color:var(--sage);}
+
+  kbd{background:#2a241a;border:1px solid var(--line);border-radius:5px;
+    padding:2px 7px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cream);}
+
+  .go{display:block;text-align:center;margin-top:30px;padding:17px;border-radius:12px;
+    background:var(--brass-dim);color:#17140f;text-decoration:none;font-weight:700;font-size:16px;}
+
+  details.faq{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:2px 16px;margin-bottom:10px;}
+  details.faq summary{cursor:pointer;padding:14px 0;font-size:14px;color:var(--brass);
+    list-style:none;}
+  details.faq summary::-webkit-details-marker{display:none;}
+  details.faq summary::before{content:"▸ ";}
+  details.faq[open] summary::before{content:"▾ ";}
+  .faq-body{padding:0 0 16px;font-size:13.5px;color:var(--dim);border-top:1px solid var(--line);padding-top:12px;}
+
+  h3.sec{font-family:'Zen Old Mincho',serif;font-size:18px;margin:36px 0 14px;}
+  footer{margin-top:40px;font-size:12.5px;color:var(--dim);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>録音ノート — はじめての設定</h1>
+  <div class="lead">話して、止めるだけ。要約されたGoogleドキュメントができあがります。</div>
+  <div class="time-note">
+    設定は<b>この最初の1回だけ</b>です。所要時間はおよそ<b>10分</b>。<br>
+    費用は<b>かかりません</b>(無料枠のみで動きます)。クレジットカードの登録も不要です。<br>
+    作成されたドキュメントは<b>あなた自身のGoogleドライブ</b>に保存されます。他の人からは見えません。
+  </div>
+</header>
+
+<div class="step">
+  <div class="step-head"><div class="num">1</div><h2>Gemini APIキーを取得する</h2></div>
+  <p>文章を要約するために使います。Googleアカウントがあれば無料で取得できます。</p>
+  <ol>
+    <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> を開く</li>
+    <li>Googleアカウントでログインする</li>
+    <li>「<b>APIキーを作成</b>」をクリック</li>
+    <li>プロジェクトを選ぶ画面が出たら、そのまま作成してよい</li>
+    <li><code>AIza</code> で始まる文字列が表示されるので<b>コピーして控えておく</b></li>
+  </ol>
+  <div class="warn">
+    <b>APIキーは他人に見せないでください。</b> SNSへの投稿や画面共有にご注意を。万一漏れた場合は、同じページでキーを削除して作り直せば無効化できます。
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><div class="num">2</div><h2>Googleドキュメントを作る仕組みを用意する</h2></div>
+  <p>Google Apps Script という無料の仕組みを使います。<b>パソコンでの作業をおすすめします</b>(スマホだと操作しづらいため)。</p>
+  <ol>
+    <li><a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> を開く</li>
+    <li>左上の「<b>新しいプロジェクト</b>」をクリック</li>
+    <li>エディタに書かれている <code>function myFunction() {}</code> を<b>すべて削除</b>する(<kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Delete</kbd>)</li>
+    <li>下のコードをコピーして貼り付ける</li>
+  </ol>
+
+  <div class="codebox">
+    <button class="copy-btn" id="copyBtn">コードをコピー</button>
+    <pre id="code">function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var title      = data.title      || '録音ノート';
+    var summary    = data.summary    || '(なし)';
+    var transcript = data.transcript || '(なし)';
+    var folderName = data.folder     || '';
+
+    var doc  = DocumentApp.create(title);
+    var body = doc.getBody();
+    body.clear();
+
+    body.appendParagraph('要約').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+    summary.split('\n').forEach(function (line) {
+      var t = line.trim();
+      if (t === '') return;
+      if (t.indexOf('## ') === 0) {
+        body.appendParagraph(t.substring(3)).setHeading(DocumentApp.ParagraphHeading.HEADING3);
+      } else if (t.indexOf('# ') === 0) {
+        body.appendParagraph(t.substring(2)).setHeading(DocumentApp.ParagraphHeading.HEADING3);
+      } else if (t.indexOf('- ') === 0 || t.indexOf('* ') === 0) {
+        body.appendListItem(cleanMd(t.substring(2))).setGlyphType(DocumentApp.GlyphType.BULLET);
+      } else {
+        body.appendParagraph(cleanMd(t));
+      }
+    });
+
+    body.appendParagraph('');
+    body.appendParagraph('文字起こし全文').setHeading(DocumentApp.ParagraphHeading.HEADING2);
+    body.appendParagraph(transcript);
+
+    doc.saveAndClose();
+
+    if (folderName !== '') {
+      var folders = DriveApp.getFoldersByName(folderName);
+      var folder  = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+      DriveApp.getFileById(doc.getId()).moveTo(folder);
+    }
+
+    return json({ ok: true, url: doc.getUrl(), id: doc.getId() });
+  } catch (err) {
+    return json({ ok: false, error: String(err) });
+  }
+}
+
+function cleanMd(s) {
+  return s.replace(/\*\*/g, '').replace(/`/g, '');
+}
+
+function json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet() {
+  return ContentService.createTextOutput('録音ノート出力スクリプトは動作しています。');
+}</pre>
+  </div>
+
+  <div class="warn">
+    <b>貼り付けたら1行目を確認してください。</b> <code>function doPost(e) {</code> で始まっていない場合、この説明文まで一緒にコピーされています。全部消して貼り直してください。
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><div class="num">3</div><h2>スクリプトを公開してURLを取得する</h2></div>
+  <ol>
+    <li>左上のプロジェクト名(「無題のプロジェクト」)をクリックし、<b>録音ノート出力</b> などに変更</li>
+    <li>フロッピーディスクのアイコンで<b>保存</b></li>
+    <li>右上の「<b>デプロイ</b>」→「<b>新しいデプロイ</b>」</li>
+    <li>左の歯車アイコン(⚙)→「<b>ウェブアプリ</b>」を選択</li>
+    <li>次のユーザーとして実行:<b>自分</b></li>
+    <li>アクセスできるユーザー:<b>全員</b></li>
+    <li>「<b>デプロイ</b>」をクリック</li>
+  </ol>
+
+  <div class="warn">
+    ここで「<b>このアプリはGoogleで確認されていません</b>」という警告が出ます。<br>
+    これは自分で書いたスクリプトを自分で承認する場合に必ず出るものです。開発者欄にご自身のメールアドレスが表示されていることを確認したうえで、<br>
+    「<b>詳細</b>」→「<b>(プロジェクト名)に移動(安全ではないページ)</b>」→ 権限を<b>すべてチェック</b>して「<b>許可</b>」と進んでください。
+  </div>
+
+  <p>完了画面に表示される「<b>ウェブアプリのURL</b>」(<code>/exec</code> で終わるもの)をコピーして控えておきます。</p>
+
+  <div class="tip">
+    <b>動作確認:</b> そのURLをブラウザのアドレスバーに貼って開き、「録音ノート出力スクリプトは動作しています。」と表示されれば成功です。
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><div class="num">4</div><h2>アプリに登録する</h2></div>
+  <ol>
+    <li>下のボタンからアプリを開く</li>
+    <li>「<b>⚙ 初期設定</b>」をタップして開く</li>
+    <li><b>Gemini APIキー</b> に手順1のキーを貼り付け</li>
+    <li><b>Google Apps Script のURL</b> に手順3のURLを貼り付け</li>
+    <li>保存先フォルダ名(任意):<code>録音ノート</code> などお好みで</li>
+    <li>「<b>この端末に保存</b>」をタップ</li>
+  </ol>
+  <div class="tip">
+    設定はお使いの端末内にのみ保存されます。作成者を含め、誰かに送信されることはありません。<br>
+    スマホとパソコンの両方で使う場合は、それぞれで一度ずつ設定してください。
+  </div>
+</div>
+
+<a class="go" href="index.html">アプリを開く →</a>
+
+<h3 class="sec">よくある質問</h3>
+
+<details class="faq">
+  <summary>本当に無料ですか?</summary>
+  <div class="faq-body">
+    はい。要約に使うGemini APIには無料枠があり、個人が日常的に使う範囲であれば超えることはまずありません。Apps ScriptとGoogleドキュメントも無料です。クレジットカードの登録も不要です。
+  </div>
+</details>
+
+<details class="faq">
+  <summary>録音した内容はどこかに送られますか?</summary>
+  <div class="faq-body">
+    文字起こしはお使いの端末のブラウザ機能で行われます。要約のためにテキストがGoogleのGemini APIへ送られ、完成したドキュメントはあなた自身のGoogleドライブに保存されます。作成者のもとには何も届きません。<br><br>
+    機密性の高い内容を扱う場合は、各サービスの利用規約をご確認のうえ、ご自身の判断でお使いください。
+  </div>
+</details>
+
+<details class="faq">
+  <summary>「429」というエラーが出ます</summary>
+  <div class="faq-body">
+    利用の上限に達したという意味です。1分ほど待ってから再実行すると通ることがあります。繰り返し出る場合は、初期設定の「使うモデル」で別のモデルを選んでみてください。Google AI Studio の「レート制限」ページで、無料枠が残っているモデル名を確認できます。
+  </div>
+</details>
+
+<details class="faq">
+  <summary>ドキュメントが作られません</summary>
+  <div class="faq-body">
+    デプロイ設定を確認してください。「アクセスできるユーザー」が<b>全員</b>になっていないと、アプリからスクリプトを呼び出せません。<br>
+    Apps Scriptで「デプロイ」→「デプロイを管理」→ 鉛筆アイコンから確認・変更できます。
+  </div>
+</details>
+
+<details class="faq">
+  <summary>文字起こしがうまくいきません</summary>
+  <div class="faq-body">
+    自動文字起こしはブラウザの音声認識機能を使っているため、環境によって精度が変わります。うまくいかない場合は「<b>キーボードの音声入力</b>」モードに切り替え、入力欄でスマホ標準の音声入力(キーボードのマイクボタン)をお使いください。そちらのほうが安定します。<br><br>
+    どちらの場合も、文字起こし欄は手で修正できます。要約前に直しておくと仕上がりが良くなります。
+  </div>
+</details>
+
+<details class="faq">
+  <summary>ホーム画面にアプリとして置きたい</summary>
+  <div class="faq-body">
+    iPhone/iPadのSafariでアプリを開き、下部の共有ボタン(□に↑)→「ホーム画面に追加」を選んでください。全画面のアプリとして起動します。<br>
+    Androidの場合はChromeのメニューから「ホーム画面に追加」を選びます。
+  </div>
+</details>
+
+<h3 class="sec">ご利用にあたって</h3>
+
+<div class="step" style="padding:20px 18px;">
+  <p style="margin-top:0;"><b>録音するときのお願い</b></p>
+  <p>会議や講演を録音する際は、その場のルールに従い、必要に応じて事前に参加者や主催者の了解を得てください。録音が禁じられている場面もあります。録音してよいかどうかの判断は、お使いになる方ご自身にお願いします。</p>
+
+  <p><b>データの取り扱い</b></p>
+  <ul>
+    <li>録音した音声と文字起こしは、要約のためにGoogleのGemini APIへ送信されます</li>
+    <li>作成されたドキュメントは、あなたご自身のGoogleドライブに保存されます</li>
+    <li>APIキーや設定はお使いの端末内にのみ保存され、作成者を含む第三者には送信されません</li>
+    <li>機密性の高い内容を扱う場合は、Google各サービスの利用規約とプライバシーポリシーをご確認のうえ、ご自身の判断でお使いください</li>
+  </ul>
+
+  <p><b>免責について</b></p>
+  <ul>
+    <li>このアプリは個人が趣味で制作したものです。動作を保証するものではありません</li>
+    <li>文字起こしや要約の内容が正確である保証はありません。重要な記録は必ずご自身で確認してください</li>
+    <li>利用にともなって生じたいかなる損害についても、作成者は責任を負いかねます</li>
+    <li>利用しているGoogleの各サービスは、仕様変更や提供終了によって予告なく動作しなくなる可能性があります</li>
+    <li>APIキーの管理は、お使いになる方ご自身の責任でお願いします</li>
+  </ul>
+
+  <p style="margin-bottom:0;">以上をご了承のうえ、ご自身の責任のもとでお使いください。</p>
+</div>
+
+<footer>
+  不具合や改善のご要望があれば、記事のコメント欄までお寄せください。<br>
+  返信や修正をお約束するものではありませんが、参考にさせていただきます。
+</footer>
+
+</div>
+
+<script>
+document.getElementById('copyBtn').addEventListener('click', function(){
+  const code = document.getElementById('code').textContent;
+  const btn = this;
+  const done = function(){
+    btn.textContent = 'コピーしました ✓';
+    btn.classList.add('done');
+    setTimeout(function(){ btn.textContent='コードをコピー'; btn.classList.remove('done'); }, 2200);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(code).then(done).catch(fallback);
+  } else { fallback(); }
+  function fallback(){
+    const ta = document.createElement('textarea');
+    ta.value = code; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ alert('コピーできませんでした。手動で選択してください。'); }
+    document.body.removeChild(ta);
+  }
+});
+</script>
+</body>
+</html>
