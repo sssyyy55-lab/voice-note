@@ -259,6 +259,14 @@ function load(){
   }
 }
 /* ---------- 接続テスト ---------- */
+// コピー&ペースト時に紛れ込む空白・改行・ゼロ幅文字を取り除く
+function cleanPaste(v){
+  return String(v || '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
 function setStatus(msg, color){
   const el = $('saveStatus');
   el.textContent = msg;
@@ -266,8 +274,12 @@ function setStatus(msg, color){
 }
 
 $('testSetup').addEventListener('click', async ()=>{
-  const key = $('gemKey').value.trim();
-  const url = $('gasUrl').value.trim();
+  // 貼り付け時に紛れ込む空白・改行・不可視文字を取り除く
+  $('gemKey').value = cleanPaste($('gemKey').value);
+  $('gasUrl').value = cleanPaste($('gasUrl').value);
+
+  const key = $('gemKey').value;
+  const url = $('gasUrl').value;
   const btn = $('testSetup');
 
   if(!key && !url){ setStatus('APIキーとURLを入力してから押してください。', '#e0836a'); return; }
@@ -279,8 +291,8 @@ $('testSetup').addEventListener('click', async ()=>{
   // --- Gemini APIキー ---
   if(!key){
     lines.push('× APIキー: 未入力です');
-  }else if(!/^AIza/.test(key)){
-    lines.push('× APIキー: AIza で始まっていません。別のものを貼っていないか確認してください');
+  }else if(/^https?:/i.test(key)){
+    lines.push('× APIキー: URLが入っています。APIキーの欄にはスクリプトのURLではなく、AI Studio で発行したキーを貼ってください');
   }else{
     try{
       const r = await fetch(
@@ -288,7 +300,9 @@ $('testSetup').addEventListener('click', async ()=>{
       if(r.ok){
         lines.push('○ APIキー: 使えます');
       }else if(r.status === 400 || r.status === 403){
-        lines.push('× APIキー: 認証できませんでした。キーが正しいか確認してください');
+        lines.push('× APIキー: Googleに拒否されました。キーをコピーし直すか、AI Studio で作り直してください');
+      }else if(r.status === 429){
+        lines.push('△ APIキー: キー自体は有効ですが、今は利用が混み合っています');
       }else{
         lines.push('△ APIキー: 確認できませんでした(' + r.status + ')');
       }
@@ -313,10 +327,13 @@ $('testSetup').addEventListener('click', async ()=>{
       }else if(r.ok){
         lines.push('△ スクリプトURL: 応答はありましたが内容が想定と違います。コードを貼り直してデプロイし直してください');
       }else{
-        lines.push('× スクリプトURL: つながりません(' + r.status + ')。アクセス権が「全員」になっているか確認してください');
+        lines.push('× スクリプトURL: 拒否されました(' + r.status + ')。アクセス権が「全員」になっているか確認してください');
       }
     }catch(e){
-      lines.push('× スクリプトURL: つながりません。URLとアクセス権(全員)を確認してください');
+      // ブラウザの制約で確認できないことがあるため、断定しない
+      lines.push('△ スクリプトURL: 形式は正しいですが、ここからは確認できませんでした。\n'
+        + '   ブラウザの制限による場合があります。URLを新しいタブで開いて\n'
+        + '   「録音ノート出力スクリプトは動作しています。」と出れば問題ありません');
     }
   }
 
@@ -331,10 +348,12 @@ $('testSetup').addEventListener('click', async ()=>{
 });
 
 $('saveSetup').addEventListener('click',()=>{
-  localStorage.setItem(K.key, $('gemKey').value.trim());
+  $('gemKey').value = cleanPaste($('gemKey').value);
+  $('gasUrl').value = cleanPaste($('gasUrl').value);
+  localStorage.setItem(K.key, $('gemKey').value);
   localStorage.setItem(K.model, $('gemModel').value);
   localStorage.setItem(K.custom, $('gemModelCustom').value.trim());
-  localStorage.setItem(K.gas, $('gasUrl').value.trim());
+  localStorage.setItem(K.gas, $('gasUrl').value);
   localStorage.setItem(K.folder, $('folderName').value.trim());
   setStatus('保存しました ✔', 'var(--sage)');
   setTimeout(()=>{ $('saveStatus').textContent=''; },2500);
