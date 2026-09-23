@@ -382,7 +382,6 @@ function setMode(m){
 $('modeRealtime').addEventListener('click',()=>setMode('realtime'));
 $('modeFile').addEventListener('click',()=>setMode('file'));
 $('modeDict').addEventListener('click',()=>setMode('dict'));
-setMode('realtime');
 
 /* ---------- recording ---------- */
 const recBtn=$('recBtn'), timerEl=$('timer'), tEl=$('transcript'), vu=$('vu');
@@ -882,6 +881,10 @@ $('redoBtn').addEventListener('click', async ()=>{
     $('linkArea').innerHTML = '<a class="doc-link" href="'+url+'" target="_blank" rel="noopener">ドキュメントを開く →</a>';
   }catch(e){ mark('p2','ng'); $('errArea').textContent=e.message; }
 });
+
+/* ---------- 初期化(すべての宣言後に実行する) ---------- */
+setMode('realtime');
+syncBtn();
 
 })();
 </script>
