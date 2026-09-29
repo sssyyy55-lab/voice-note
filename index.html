@@ -138,18 +138,17 @@
 
     <label>使うモデル</label>
     <select id="gemModel">
-      <option value="auto">自動(使えるものを順に試す)</option>
-      <option value="gemini-2.0-flash">gemini-2.0-flash</option>
-      <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
-      <option value="gemini-flash-lite-latest">gemini-flash-lite-latest</option>
-      <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-      <option value="gemini-flash-latest">gemini-flash-latest</option>
-      <option value="custom">手入力する(下の欄に記入)</option>
+      <option value="auto">自動(おすすめ)</option>
+      <option value="custom">モデル名を指定する</option>
     </select>
-    <div class="hint">まずは「自動」でお試しください。429エラーが出る場合は、AI Studio の「レート制限」で無料枠が残っているモデル名を確認して指定してください。</div>
+    <div class="hint">
+      「自動」にしておくと、その時点で使えるモデルをGoogleに問い合わせて選びます。<br>
+      Googleはモデルを入れ替えることがあるため、通常は自動のままが安全です。
+    </div>
 
-    <label>モデル名を手入力(上で「手入力する」を選んだ場合)</label>
-    <input type="text" id="gemModelCustom" placeholder="例: gemini-2.0-flash">
+    <label>モデル名(上で「指定する」を選んだ場合)</label>
+    <input type="text" id="gemModelCustom" placeholder="例: gemini-flash-latest">
+    <div class="hint">指定したモデルが使えない場合は、自動で他の候補を試します。</div>
 
     <label>Google Apps Script のURL</label>
     <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/.../exec">
@@ -231,7 +230,7 @@
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
   <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a><br>
   <span style="display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.0</span>
+    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.1</span>
 </footer>
 
 </div>
@@ -301,6 +300,11 @@ $('testSetup').addEventListener('click', async ()=>{
         'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key));
       if(r.ok){
         lines.push('○ APIキー: 使えます');
+        try{
+          modelCache = null;                     // 毎回あらためて調べる
+          const ms = await pickModels(key, 'summary');
+          if(ms.length) lines.push('   使えるモデル: ' + ms.slice(0,3).join(', '));
+        }catch(e){}
       }else if(r.status === 400 || r.status === 403){
         lines.push('× APIキー: Googleに拒否されました。キーをコピーし直すか、AI Studio で作り直してください');
       }else if(r.status === 429){
@@ -528,24 +532,67 @@ function syncBtn(){
 }
 tEl.addEventListener('input',syncBtn);
 
-/* ---------- Gemini summarize ---------- */
-// 文字起こし用：軽量でも十分なので枠の緩いものを優先
+/* ---------- 使えるモデルを自動で調べる ----------
+   Googleはモデルを予告なく入れ替えるため、名前を固定で持たず、
+   その時点で実際に使えるものを問い合わせて選ぶ。            */
+
+// 問い合わせに失敗したときだけ使う保険の一覧
 const FALLBACK_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-2.5-flash-lite',
+  'gemini-flash-latest',
   'gemini-flash-lite-latest',
-  'gemini-2.5-flash',
-  'gemini-flash-latest',
-  'gemini-2.0-flash-lite'
+  'gemini-3.8-flash',
+  'gemini-3-flash',
+  'gemini-2.0-flash'
 ];
-// 要約用：構造の読み取りが必要なので読解力の高いものを優先
-const SUMMARY_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-flash-latest',
-  'gemini-2.0-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-flash-lite-latest'
-];
+
+let modelCache = null;   // このセッション中は一度調べたら使い回す
+
+// 音声や文章に使えないモデルを除外する
+const MODEL_EXCLUDE = /embedding|aqa|imagen|veo|image-generation|tts|audio-dialog|learnlm|gemma/i;
+
+function modelRank(name){
+  // 新しい世代ほど優先。数字が読めないものは後回しにする。
+  const m = name.match(/gemini-(\d+(?:\.\d+)?)/);
+  let score = m ? parseFloat(m[1]) * 100 : 0;
+  if(/latest/.test(name))              score += 40;  // 常に最新を指す別名は安定
+  if(/preview|exp|experimental/.test(name)) score -= 60;  // 試験版は避ける
+  return score;
+}
+
+async function fetchAvailableModels(key){
+  if(modelCache) return modelCache;
+  const res = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key));
+  if(!res.ok) throw new Error('モデル一覧を取得できませんでした(' + res.status + ')');
+  const d = await res.json();
+  const list = (d.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).indexOf('generateContent') !== -1)
+    .map(m => String(m.name || '').replace(/^models\//, ''))
+    .filter(n => /^gemini/i.test(n) && !MODEL_EXCLUDE.test(n));
+  if(!list.length) throw new Error('使えるモデルが見つかりませんでした');
+  modelCache = list;
+  return list;
+}
+
+// purpose: 'summary' は読解力重視、それ以外(文字起こし)は軽量を優先
+async function pickModels(key, purpose){
+  let list;
+  try{
+    list = await fetchAvailableModels(key);
+  }catch(e){
+    return FALLBACK_MODELS.slice();   // 問い合わせに失敗しても止まらないように
+  }
+  const flash = list.filter(n => /flash/.test(n) && !/lite/.test(n)).sort((a,b)=>modelRank(b)-modelRank(a));
+  const lite  = list.filter(n => /flash/.test(n) &&  /lite/.test(n)).sort((a,b)=>modelRank(b)-modelRank(a));
+  const rest  = list.filter(n => !/flash/.test(n)).sort((a,b)=>modelRank(b)-modelRank(a));
+
+  const ordered = (purpose === 'summary')
+    ? flash.concat(lite, rest)   // 要約は読解力のあるものから
+    : lite.concat(flash, rest);  // 文字起こしは軽いものから
+
+  // 同じものが二度入らないようにして、試す数を絞る
+  return ordered.filter((v,i,a) => a.indexOf(v) === i).slice(0, 6);
+}
 
 async function callGemini(model, key, prompt){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
@@ -658,15 +705,19 @@ function buildPrompt(type, text){
   return head + '\n\n# 文字起こし\n\n' + text;
 }
 
-function resolveModels(purpose){
+async function resolveModels(key, purpose){
   let chosen = localStorage.getItem(K.model) || 'auto';
   if(chosen === 'custom'){
     const c = (localStorage.getItem(K.custom) || '').trim();
     if(!c) throw new Error('モデル名が手入力されていません。初期設定を確認してください。');
     chosen = c;
   }
-  if(chosen !== 'auto') return [chosen];
-  return (purpose === 'summary') ? SUMMARY_MODELS : FALLBACK_MODELS;
+  // 特定のモデルを選んでいても、それが使えなくなっている場合に備えて候補を後ろに足す
+  if(chosen !== 'auto'){
+    const backup = await pickModels(key, purpose);
+    return [chosen].concat(backup.filter(n => n !== chosen));
+  }
+  return await pickModels(key, purpose);
 }
 
 function blobToBase64(blob){
@@ -728,7 +779,7 @@ async function transcribeAudio(blob){
     '・聞き取れない箇所は(不明瞭)と書く\n' +
     '・前置きや説明は不要。文字起こしの本文のみを出力する';
 
-  const models = resolveModels();
+  const models = await resolveModels(key, 'transcribe');
   let lastErr = null;
   const tried = [];
   for(const m of models){
@@ -752,7 +803,7 @@ async function summarize(text){
 
   const type = ($('docType') && $('docType').value) || 'meeting';
   const prompt = buildPrompt(type, text);
-  const models = resolveModels('summary');
+  const models = await resolveModels(key, 'summary');
 
   let lastErr = null;
   const tried = [];
