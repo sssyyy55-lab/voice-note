@@ -243,7 +243,7 @@
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
   <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a><br>
   <span style="display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.2</span>
+    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.3</span>
 </footer>
 
 </div>
@@ -412,6 +412,11 @@ $('testSetup').addEventListener('click', async ()=>{
     lines.push('× APIキー: 未入力です');
   }else if(/^https?:/i.test(key)){
     lines.push('× APIキー: URLが入っています。APIキーの欄にはスクリプトのURLではなく、AI Studio で発行したキーを貼ってください');
+  }else if(key.indexOf('...') !== -1 || key.indexOf('…') !== -1){
+    lines.push('× APIキー: 「...」を含んでいます。画面上の省略表示をコピーしたものと思われます');
+    lines.push('   AI Studio の鍵の行にある「コピー」アイコンから取り直してください');
+  }else if(key.length < 20){
+    lines.push('× APIキー: 短すぎます(' + key.length + '文字)。キー全体が貼られているか確認してください');
   }else{
     try{
       const r = await fetch(
@@ -423,8 +428,10 @@ $('testSetup').addEventListener('click', async ()=>{
           const ms = await pickModels(key, 'summary');
           if(ms.length) lines.push('   使えるモデル: ' + ms.slice(0,3).join(', '));
         }catch(e){}
-      }else if(r.status === 400 || r.status === 403){
-        lines.push('× APIキー: Googleに拒否されました。キーをコピーし直すか、AI Studio で作り直してください');
+      }else if(r.status === 400 || r.status === 401 || r.status === 403){
+        lines.push('× APIキー: Googleに受け付けられませんでした');
+        lines.push('   AI Studio の鍵の行にある「コピー」アイコンから取り直してください');
+        lines.push('   (画面に見える「...」付きの短い表示は省略形で、そのままでは使えません)');
       }else if(r.status === 429){
         lines.push('△ APIキー: キー自体は有効ですが、今は利用が混み合っています');
       }else{
@@ -824,6 +831,37 @@ function buildPrompt(type, text){
   return head + '\n\n# 文字起こし\n\n' + text;
 }
 
+// APIからのエラーを、利用者が次に何をすればよいか分かる文章に直す
+function explainApiError(err, tried, what){
+  const st = err && err.status;
+  const head = what + 'に失敗しました。\n';
+  if(st === 401 || st === 403){
+    return head +
+      'APIキーが受け付けられませんでした。\n\n' +
+      '次の順にお試しください。\n' +
+      '1. 初期設定の「接続をテスト」を押して、APIキーの状態を確認する\n' +
+      '2. aistudio.google.com/apikey を開き、鍵の行の右にある\n' +
+      '   コピーアイコンからキーを取り直して貼り直す\n' +
+      '   (画面に見えている「...」付きの短い表示は省略形で、そのままでは使えません)\n' +
+      '3. それでも直らなければ、同じページで新しいキーを作り直す';
+  }
+  if(st === 429){
+    return head +
+      '無料枠の上限に達しているようです。\n' +
+      '1分ほど待ってから、もう一度お試しください。\n' +
+      '繰り返し出る場合は、その日の分を使い切っている可能性があります(翌日には戻ります)。\n\n' +
+      '試したモデル: ' + tried.join(', ');
+  }
+  if(st === 404){
+    return head +
+      '指定されたモデルが見つかりませんでした。\n' +
+      '初期設定の「使うモデル」を「自動」に戻すと、使えるものが選ばれます。\n\n' +
+      '試したモデル: ' + tried.join(', ');
+  }
+  return head + '試したモデル: ' + tried.join(', ') + '\n' +
+    (err ? String(err.message).slice(0,200) : '原因不明');
+}
+
 async function resolveModels(key, purpose){
   let chosen = localStorage.getItem(K.model) || 'auto';
   if(chosen === 'custom'){
@@ -912,8 +950,7 @@ async function transcribeAudio(blob){
       if(e.status !== 404 && e.status !== 400 && e.status !== 429) break;
     }
   }
-  throw new Error('文字起こしに失敗しました。\n試したモデル: ' + tried.join(', ') + '\n' +
-    (lastErr ? lastErr.message : '原因不明'));
+  throw new Error(explainApiError(lastErr, tried, '文字起こし'));
 }
 
 async function summarize(text){
@@ -940,16 +977,7 @@ async function summarize(text){
       if(e.status !== 404 && e.status !== 400 && e.status !== 429) break;
     }
   }
-  if(lastErr && lastErr.status === 429){
-    throw new Error(
-      '無料枠の上限に達しているようです。\n' +
-      '試したモデル: ' + tried.join(', ') + '\n\n' +
-      'AI Studio の「レート制限」ページで、無料枠が残っているモデル名を確認し、初期設定で直接指定してください。\n' +
-      '(1分ほど待ってから再実行すると通ることもあります)'
-    );
-  }
-  throw new Error('要約に失敗しました。\n試したモデル: ' + tried.join(', ') + '\n' +
-    (lastErr ? lastErr.message : '原因不明'));
+  throw new Error(explainApiError(lastErr, tried, '要約'));
 }
 
 /* ---------- Google Docs via Apps Script ---------- */
