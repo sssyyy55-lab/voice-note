@@ -164,6 +164,19 @@
     <button class="save-btn" id="saveSetup">この端末に保存</button>
     <button class="save-btn" id="testSetup" style="margin-left:8px;">接続をテスト</button>
     <div class="save-status" id="saveStatus" style="margin-left:0;margin-top:12px;display:block;white-space:pre-wrap;line-height:1.8;"></div>
+
+    <div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--line);">
+      <div style="color:var(--cream);font-size:12px;">設定の控え</div>
+      <div class="hint" style="margin-top:6px;">
+        iPhoneのSafariは、7日間開かなかったサイトの保存内容を自動で消すことがあります。<br>
+        下のボタンで設定コードを作り、メモアプリなどに貼って残しておくと、消えても貼り戻すだけで復帰できます。
+      </div>
+      <button class="save-btn" id="exportSetup" style="margin-top:12px;">設定コードを作る</button>
+      <button class="save-btn" id="importSetup" style="margin-left:8px;margin-top:12px;">設定を読み込む</button>
+      <textarea id="setupCode" placeholder="ここに設定コードが表示されます。読み込むときは、控えておいたコードをここに貼り付けてから「設定を読み込む」を押してください。"
+        style="min-height:70px;font-family:'JetBrains Mono',monospace;font-size:11.5px;margin-top:10px;"></textarea>
+      <div class="hint" id="codeHint">このコードにはAPIキーが含まれます。他人に渡さないでください。</div>
+    </div>
   </div>
 </details>
 
@@ -230,7 +243,7 @@
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
   <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a><br>
   <span style="display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.1</span>
+    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.2</span>
 </footer>
 
 </div>
@@ -242,23 +255,128 @@ const $ = id => document.getElementById(id);
 const K = {key:'vn3_gemkey', model:'vn3_model', custom:'vn3_custom', gas:'vn3_gas', folder:'vn3_folder'};
 
 /* ---------- setup ---------- */
+// 以前に設定を保存したことがあるかの目印(消去されたかどうかの判定に使う)
+const SEEN = 'vn3_seen';
+
 function load(){
   $('gemKey').value    = localStorage.getItem(K.key) || '';
-  $('gemModel').value  = localStorage.getItem(K.model) || 'auto';
   $('gemModelCustom').value = localStorage.getItem(K.custom) || '';
   $('gasUrl').value    = localStorage.getItem(K.gas) || '';
   $('folderName').value= localStorage.getItem(K.folder) || '';
-  if(!$('gemKey').value || !$('gasUrl').value){
-    $('setupPanel').open = true;
-    const b = document.createElement('div');
-    b.style.cssText = 'background:#2a241a;border:1px solid #c99a4b;border-radius:12px;padding:16px;margin-bottom:18px;font-size:13.5px;line-height:1.8;';
-    b.innerHTML = 'はじめてお使いの方へ<br>'
+
+  // 保存済みの値が選択肢にない場合、空白表示になるのを防ぐ
+  const savedModel = localStorage.getItem(K.model) || 'auto';
+  const sel = $('gemModel');
+  const known = Array.prototype.some.call(sel.options, o => o.value === savedModel);
+  sel.value = known ? savedModel : 'auto';
+
+  const hasSetup = $('gemKey').value && $('gasUrl').value;
+  if(hasSetup){
+    localStorage.setItem(SEEN, '1');
+    return;
+  }
+
+  $('setupPanel').open = true;
+  const wiped = localStorage.getItem(SEEN) === '1';   // 前は設定済みだったのに消えている
+  const b = document.createElement('div');
+  b.style.cssText = 'background:#2a241a;border:1px solid #c99a4b;border-radius:12px;padding:16px;margin-bottom:18px;font-size:13.5px;line-height:1.8;';
+  b.innerHTML = wiped
+    ? '設定が消えています<br>'
+      + '<span style="color:#a89a82;">iPhoneのSafariは、7日間開かなかったサイトの保存内容を自動で消すことがあります。'
+      + '控えておいた設定コードがあれば、下の「設定を読み込む」から戻せます。<br>'
+      + 'ホーム画面に追加したアイコンから開くと、消えにくくなります。</span>'
+    : 'はじめてお使いの方へ<br>'
       + '<span style="color:#a89a82;">使い始めるには、無料の設定が2つ必要です(10分ほど)。</span><br>'
       + '<a href="setup.html" style="display:inline-block;margin-top:10px;padding:10px 18px;border-radius:8px;background:#8a6e3c;color:#17140f;text-decoration:none;font-weight:700;">セットアップガイドを開く →</a>';
-    const panel = $('setupPanel');
-    panel.parentNode.insertBefore(b, panel);
-  }
+  const panel = $('setupPanel');
+  panel.parentNode.insertBefore(b, panel);
 }
+
+// 保存領域を消されにくくするようブラウザに依頼する
+(async function requestPersist(){
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      if(!(await navigator.storage.persisted())) await navigator.storage.persist();
+    }
+  }catch(e){}
+})();
+/* ---------- 設定の書き出し・読み込み ---------- */
+// 日本語を含めても壊れないように UTF-8 を経由して Base64 にする
+function encodeCode(obj){
+  const json = JSON.stringify(obj);
+  const bytes = new TextEncoder().encode(json);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return 'VN1-' + btoa(bin).replace(/=+$/, '');
+}
+function decodeCode(code){
+  const body = String(code || '').trim().replace(/^VN1-/, '').replace(/\s+/g, '');
+  const bin = atob(body);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+$('exportSetup').addEventListener('click', ()=>{
+  const key = cleanPaste($('gemKey').value);
+  const url = cleanPaste($('gasUrl').value);
+  if(!key || !url){
+    $('codeHint').textContent = 'APIキーとURLを入力してから押してください。';
+    $('codeHint').style.color = '#e0836a';
+    return;
+  }
+  const code = encodeCode({
+    k: key, u: url,
+    f: $('folderName').value.trim(),
+    m: $('gemModel').value,
+    c: $('gemModelCustom').value.trim()
+  });
+  $('setupCode').value = code;
+  $('setupCode').select();
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code);
+      $('codeHint').textContent = 'コピーしました。メモアプリなどに貼って残しておいてください。他人には渡さないでください。';
+    }else{
+      $('codeHint').textContent = '上の文字をすべて選んでコピーし、メモアプリなどに残しておいてください。';
+    }
+    $('codeHint').style.color = 'var(--sage)';
+  }catch(e){
+    $('codeHint').textContent = '上の文字をすべて選んでコピーしてください。';
+    $('codeHint').style.color = 'var(--dim)';
+  }
+});
+
+$('importSetup').addEventListener('click', ()=>{
+  const raw = $('setupCode').value.trim();
+  if(!raw){
+    $('codeHint').textContent = '控えておいた設定コードを、上の欄に貼り付けてから押してください。';
+    $('codeHint').style.color = '#e0836a';
+    return;
+  }
+  let d;
+  try{ d = decodeCode(raw); }
+  catch(e){
+    $('codeHint').textContent = '設定コードを読み取れませんでした。コード全体が貼り付けられているか確認してください。';
+    $('codeHint').style.color = '#e0836a';
+    return;
+  }
+  if(!d || !d.k || !d.u){
+    $('codeHint').textContent = 'このコードには必要な情報が入っていません。';
+    $('codeHint').style.color = '#e0836a';
+    return;
+  }
+  $('gemKey').value = d.k;
+  $('gasUrl').value = d.u;
+  $('folderName').value = d.f || '';
+  $('gemModelCustom').value = d.c || '';
+  const sel = $('gemModel');
+  const m = d.m || 'auto';
+  sel.value = Array.prototype.some.call(sel.options, o => o.value === m) ? m : 'auto';
+  $('codeHint').textContent = '読み込みました。「この端末に保存」を押すと有効になります。';
+  $('codeHint').style.color = 'var(--sage)';
+});
+
 /* ---------- 接続テスト ---------- */
 // コピー&ペースト時に紛れ込む空白・改行・ゼロ幅文字を取り除く
 function cleanPaste(v){
@@ -361,6 +479,7 @@ $('saveSetup').addEventListener('click',()=>{
   localStorage.setItem(K.custom, $('gemModelCustom').value.trim());
   localStorage.setItem(K.gas, $('gasUrl').value);
   localStorage.setItem(K.folder, $('folderName').value.trim());
+  if($('gemKey').value && $('gasUrl').value) localStorage.setItem(SEEN, '1');
   setStatus('保存しました ✔', 'var(--sage)');
   setTimeout(()=>{ $('saveStatus').textContent=''; },2500);
 });
