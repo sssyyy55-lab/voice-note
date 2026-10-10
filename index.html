@@ -243,7 +243,7 @@
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
   <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a><br>
   <span style="display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.4</span>
+    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.5</span>
 </footer>
 
 </div>
@@ -749,6 +749,32 @@ async function pickModels(key, purpose){
   return ordered.filter((v,i,a) => a.indexOf(v) === i).slice(0, 6);
 }
 
+// 混雑(5xx)は一瞬で収まることが多いので、同じモデルに少しだけ粘る
+async function withRetry(fn, label){
+  const waits = [1200, 3000];   // 2回だけ、間隔をあけて試す
+  let err = null;
+  for(let i = 0; i <= waits.length; i++){
+    try{ return await fn(); }
+    catch(e){
+      err = e;
+      if(!isTransient(e.status) || i === waits.length) throw e;
+      if(label) setBusy(label + '(混雑のため再試行中 ' + (i+1) + '/' + waits.length + ')');
+      await sleep(waits[i]);
+    }
+  }
+  throw err;
+}
+
+// 進行表示に補足を出す
+function setBusy(msg){
+  const el = $('errArea');
+  if(el){ el.style.color = 'var(--brass)'; el.textContent = msg; }
+}
+function clearBusy(){
+  const el = $('errArea');
+  if(el){ el.style.color = ''; el.textContent = ''; }
+}
+
 async function callGemini(model, key, prompt){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
     + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
@@ -860,6 +886,18 @@ function buildPrompt(type, text){
   return head + '\n\n# 文字起こし\n\n' + text;
 }
 
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+// 時間をおけば直る可能性のあるエラーか(混雑・一時停止など)
+function isTransient(st){
+  return st === 500 || st === 502 || st === 503 || st === 504;
+}
+
+// 次の候補モデルを試す価値があるエラーか
+function shouldTryNextModel(st){
+  return st === 404 || st === 400 || st === 429 || isTransient(st);
+}
+
 // APIからのエラーを、利用者が次に何をすればよいか分かる文章に直す
 function explainApiError(err, tried, what){
   const st = err && err.status;
@@ -874,6 +912,14 @@ function explainApiError(err, tried, what){
       '   コピーアイコンからキーを取り直して貼り直す\n' +
       '   (画面に見えている「...」付きの短い表示は省略形で、そのままでは使えません)\n' +
       '3. それでも直らなければ、同じページで新しいキーを作り直す';
+  }
+  if(isTransient(st)){
+    return head +
+      'Google側が一時的に混み合っているようです。\n' +
+      '利用者側の設定に問題はありません。\n\n' +
+      '少し時間をおいてから、もう一度お試しください。\n' +
+      '文字起こしと要約は画面に残っているので、録音し直す必要はありません。\n\n' +
+      '試したモデル: ' + tried.join(', ');
   }
   if(st === 429){
     return head +
@@ -971,13 +1017,16 @@ async function transcribeAudio(blob){
   const tried = [];
   for(const m of models){
     try{
-      const out = await callGeminiAudio(m, key, base64, mime, prompt);
+      const out = await withRetry(function(){
+        return callGeminiAudio(m, key, base64, mime, prompt);
+      }, '音声から文字起こし中');
+      clearBusy();
       if(!out) throw new Error('音声から文字を認識できませんでした。');
       return out;
     }catch(e){
       lastErr = e;
       tried.push(m + '(' + (e.status || '?') + ')');
-      if(e.status !== 404 && e.status !== 400 && e.status !== 429) break;
+      if(!shouldTryNextModel(e.status)) break;
     }
   }
   throw new Error(explainApiError(lastErr, tried, '文字起こし'));
@@ -995,7 +1044,8 @@ async function summarize(text){
   const tried = [];
   for(const m of models){
     try{
-      const out = await callGemini(m, key, prompt);
+      const out = await withRetry(function(){ return callGemini(m, key, prompt); }, '要約を生成中');
+      clearBusy();
       if(!out) throw new Error('空の応答が返りました。');
       const i = out.indexOf('---');
       if(i > 0 && i < 80) return { title: out.slice(0,i).trim(), body: out.slice(i+3).trim() };
@@ -1004,7 +1054,7 @@ async function summarize(text){
       lastErr = e;
       tried.push(m + '(' + (e.status || '?') + ')');
       // 404=モデル名が無効 / 400=リクエスト不正 / 429=枠切れ の場合は次の候補へ
-      if(e.status !== 404 && e.status !== 400 && e.status !== 429) break;
+      if(!shouldTryNextModel(e.status)) break;
     }
   }
   throw new Error(explainApiError(lastErr, tried, '要約'));
