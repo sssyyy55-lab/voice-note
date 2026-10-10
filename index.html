@@ -243,7 +243,7 @@
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
   <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a><br>
   <span style="display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.3</span>
+    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.4</span>
 </footer>
 
 </div>
@@ -379,6 +379,29 @@ $('importSetup').addEventListener('click', ()=>{
 
 /* ---------- 接続テスト ---------- */
 // コピー&ペースト時に紛れ込む空白・改行・ゼロ幅文字を取り除く
+// キーの一部だけを見せて、AI Studio の表示と突き合わせられるようにする
+function fingerprint(v){
+  const k = String(v || '');
+  if(k.length < 12) return '(' + k.length + '文字)';
+  return '(' + k.length + '文字 ' + k.slice(0,6) + '…' + k.slice(-4) + ')';
+}
+
+// 欄の内容と保存済みの内容がずれていないか調べる
+function unsavedDiff(){
+  const pairs = [
+    ['gemKey', K.key, 'APIキー'],
+    ['gasUrl', K.gas, 'スクリプトURL'],
+    ['folderName', K.folder, '保存先フォルダ名']
+  ];
+  const diff = [];
+  pairs.forEach(function(p){
+    const cur = String($(p[0]).value || '').trim();
+    const saved = String(localStorage.getItem(p[1]) || '').trim();
+    if(cur !== saved) diff.push(p[2]);
+  });
+  return diff;
+}
+
 function cleanPaste(v){
   return String(v || '')
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
@@ -422,14 +445,14 @@ $('testSetup').addEventListener('click', async ()=>{
       const r = await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key));
       if(r.ok){
-        lines.push('○ APIキー: 使えます');
+        lines.push('○ APIキー: 使えます  ' + fingerprint(key));
         try{
           modelCache = null;                     // 毎回あらためて調べる
           const ms = await pickModels(key, 'summary');
           if(ms.length) lines.push('   使えるモデル: ' + ms.slice(0,3).join(', '));
         }catch(e){}
       }else if(r.status === 400 || r.status === 401 || r.status === 403){
-        lines.push('× APIキー: Googleに受け付けられませんでした');
+        lines.push('× APIキー: Googleに受け付けられませんでした  ' + fingerprint(key));
         lines.push('   AI Studio の鍵の行にある「コピー」アイコンから取り直してください');
         lines.push('   (画面に見える「...」付きの短い表示は省略形で、そのままでは使えません)');
       }else if(r.status === 429){
@@ -471,6 +494,12 @@ $('testSetup').addEventListener('click', async ()=>{
   const ng = lines.some(l => l.charAt(0) === '×');
   const warn = lines.some(l => l.charAt(0) === '△');
   lines.push('');
+  const un = unsavedDiff();
+  if(un.length){
+    lines.push('※ ' + un.join('・') + ' が、まだ「この端末に保存」されていません。');
+    lines.push('  保存するまで、アプリは以前の内容で動きます。');
+    lines.push('');
+  }
   lines.push(ng ? '→ 上の × を直してから保存してください。'
                : (warn ? '→ そのまま試してみて、うまくいかなければ設定を見直してください。'
                        : '→ 準備ができています。「この端末に保存」を押してください。'));
@@ -839,6 +868,7 @@ function explainApiError(err, tried, what){
     return head +
       'APIキーが受け付けられませんでした。\n\n' +
       '次の順にお試しください。\n' +
+      '0. キーを入れ直したあと「この端末に保存」を押したか確認する\n' +
       '1. 初期設定の「接続をテスト」を押して、APIキーの状態を確認する\n' +
       '2. aistudio.google.com/apikey を開き、鍵の行の右にある\n' +
       '   コピーアイコンからキーを取り直して貼り直す\n' +
@@ -1023,6 +1053,15 @@ function stamp(){
 }
 
 async function runAll(){
+  // 設定を直したあと保存し忘れていると、古い内容で動いてしまうため先に知らせる
+  const un = unsavedDiff();
+  if(un.length){
+    $('setupPanel').open = true;
+    $('errArea').textContent =
+      un.join('・') + ' の変更がまだ保存されていません。\n' +
+      '初期設定の「この端末に保存」を押してから、もう一度実行してください。';
+    return;
+  }
   $('goBtn').disabled=true; $('errArea').textContent=''; $('linkArea').innerHTML='';
   $('prog').style.display='block';
   mark('p0',''); mark('p1',''); mark('p2','');
