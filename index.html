@@ -157,6 +157,26 @@
       ブラウザで開いたあとアドレスバーに出る <code>script.googleusercontent.com</code> のURLは<b>別物</b>です。デプロイ完了画面に表示されたURLを使ってください。
     </div>
 
+    <div id="gasShortcut" style="margin-top:12px;padding:13px 14px;border-radius:10px;
+      background:#2a241a;border:1px solid var(--line);">
+      <div style="font-size:12px;color:var(--cream);">URLを取り直すとき</div>
+      <div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;">
+        <a id="openProject" href="https://script.google.com/home/my" target="_blank" rel="noopener"
+          style="padding:9px 14px;border-radius:8px;background:var(--brass-dim);color:#17140f;
+          text-decoration:none;font-weight:700;font-size:12.5px;">スクリプトを開く →</a>
+      </div>
+      <div class="hint" style="margin-top:9px;">
+        開いたあと「デプロイ」→「デプロイを管理」→ <b>Web app の URL の下にある Copy</b>。<br>
+        その上の Deployment ID ではありません。
+      </div>
+
+      <label style="margin-top:14px;">自分のプロジェクトのリンク(任意)</label>
+      <input type="text" id="projectUrl" placeholder="https://script.google.com/.../edit">
+      <div class="hint">
+        Apps Scriptでプロジェクトを開いたときのアドレスを貼っておくと、上のボタンが<b>そのプロジェクトを直接開く</b>ようになり、一覧から探す手間がなくなります。
+      </div>
+    </div>
+
     <label>保存先フォルダ名(任意)</label>
     <input type="text" id="folderName" placeholder="録音ノート">
     <div class="hint">マイドライブ内にこの名前のフォルダを作って保存します。</div>
@@ -243,7 +263,7 @@
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
   <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a><br>
   <span style="display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.5</span>
+    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.6</span>
 </footer>
 
 </div>
@@ -252,7 +272,7 @@
 (function(){
 "use strict";
 const $ = id => document.getElementById(id);
-const K = {key:'vn3_gemkey', model:'vn3_model', custom:'vn3_custom', gas:'vn3_gas', folder:'vn3_folder'};
+const K = {key:'vn3_gemkey', model:'vn3_model', custom:'vn3_custom', gas:'vn3_gas', folder:'vn3_folder', proj:'vn3_proj'};
 
 /* ---------- setup ---------- */
 // 以前に設定を保存したことがあるかの目印(消去されたかどうかの判定に使う)
@@ -263,6 +283,8 @@ function load(){
   $('gemModelCustom').value = localStorage.getItem(K.custom) || '';
   $('gasUrl').value    = localStorage.getItem(K.gas) || '';
   $('folderName').value= localStorage.getItem(K.folder) || '';
+  $('projectUrl').value = localStorage.getItem(K.proj) || '';
+  applyProjectLink();
 
   // 保存済みの値が選択肢にない場合、空白表示になるのを防ぐ
   const savedModel = localStorage.getItem(K.model) || 'auto';
@@ -317,6 +339,8 @@ function decodeCode(code){
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 
+$('projectUrl').addEventListener('input', applyProjectLink);
+
 $('exportSetup').addEventListener('click', ()=>{
   const key = cleanPaste($('gemKey').value);
   const url = cleanPaste($('gasUrl').value);
@@ -329,7 +353,8 @@ $('exportSetup').addEventListener('click', ()=>{
     k: key, u: url,
     f: $('folderName').value.trim(),
     m: $('gemModel').value,
-    c: $('gemModelCustom').value.trim()
+    c: $('gemModelCustom').value.trim(),
+    p: $('projectUrl').value.trim()
   });
   $('setupCode').value = code;
   $('setupCode').select();
@@ -370,6 +395,8 @@ $('importSetup').addEventListener('click', ()=>{
   $('gasUrl').value = d.u;
   $('folderName').value = d.f || '';
   $('gemModelCustom').value = d.c || '';
+  $('projectUrl').value = d.p || '';
+  applyProjectLink();
   const sel = $('gemModel');
   const m = d.m || 'auto';
   sel.value = Array.prototype.some.call(sel.options, o => o.value === m) ? m : 'auto';
@@ -379,6 +406,16 @@ $('importSetup').addEventListener('click', ()=>{
 
 /* ---------- 接続テスト ---------- */
 // コピー&ペースト時に紛れ込む空白・改行・ゼロ幅文字を取り除く
+// 自分のプロジェクトを登録していれば、ボタンをその直リンクに差し替える
+function applyProjectLink(){
+  const a = $('openProject');
+  if(!a) return;
+  const u = String(($('projectUrl') && $('projectUrl').value) || '').trim();
+  const ok = /^https:\/\/script\.google\.com\//.test(u);
+  a.href = ok ? u : 'https://script.google.com/home/my';
+  a.textContent = ok ? '自分のスクリプトを開く →' : 'スクリプトを開く →';
+}
+
 // キーの一部だけを見せて、AI Studio の表示と突き合わせられるようにする
 function fingerprint(v){
   const k = String(v || '');
@@ -515,6 +552,8 @@ $('saveSetup').addEventListener('click',()=>{
   localStorage.setItem(K.custom, $('gemModelCustom').value.trim());
   localStorage.setItem(K.gas, $('gasUrl').value);
   localStorage.setItem(K.folder, $('folderName').value.trim());
+  localStorage.setItem(K.proj, $('projectUrl').value.trim());
+  applyProjectLink();
   if($('gemKey').value && $('gasUrl').value) localStorage.setItem(SEEN, '1');
   setStatus('保存しました ✔', 'var(--sage)');
   setTimeout(()=>{ $('saveStatus').textContent=''; },2500);
