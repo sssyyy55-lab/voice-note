@@ -263,7 +263,7 @@
   録音の可否はその場のルールに従い、必要に応じて事前に了解を得てください。<br>
   <a href="setup.html" style="color:var(--brass-dim);">設定方法・ご利用にあたって</a><br>
   <span style="display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;
-    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.6</span>
+    font-size:10.5px;color:#4f4839;letter-spacing:.04em;">録音ノート v1.7</span>
 </footer>
 
 </div>
@@ -814,17 +814,35 @@ function clearBusy(){
   if(el){ el.style.color = ''; el.textContent = ''; }
 }
 
+// 応答が返らないまま固まらないよう、時間切れを設けて fetch する。
+// 通信そのものが失敗した場合は status に 'network' を入れて、再試行の対象にする。
+async function fetchWithTimeout(url, opts, ms){
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const timer = ctrl ? setTimeout(function(){ ctrl.abort(); }, ms || 90000) : null;
+  try{
+    return await fetch(url, Object.assign({}, opts, ctrl ? {signal: ctrl.signal} : {}));
+  }catch(e){
+    const err = new Error(e && e.name === 'AbortError'
+      ? '応答が返ってこないため中断しました'
+      : '通信できませんでした');
+    err.status = 'network';
+    throw err;
+  }finally{
+    if(timer) clearTimeout(timer);
+  }
+}
+
 async function callGemini(model, key, prompt){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
     + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       contents:[{ parts:[{ text: prompt }] }],
       generationConfig: { temperature: 0.3, maxOutputTokens: 8192 }
     })
-  });
+  }, 90000);
   const body = await res.text();
   if(!res.ok){
     const e = new Error(body.slice(0,300));
@@ -929,7 +947,8 @@ function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 
 // 時間をおけば直る可能性のあるエラーか(混雑・一時停止など)
 function isTransient(st){
-  return st === 500 || st === 502 || st === 503 || st === 504;
+  // network は fetch 自体が失敗した場合(圏外・回線切れ・時間切れなど)
+  return st === 'network' || st === 500 || st === 502 || st === 503 || st === 504;
 }
 
 // 次の候補モデルを試す価値があるエラーか
@@ -951,6 +970,14 @@ function explainApiError(err, tried, what){
       '   コピーアイコンからキーを取り直して貼り直す\n' +
       '   (画面に見えている「...」付きの短い表示は省略形で、そのままでは使えません)\n' +
       '3. それでも直らなければ、同じページで新しいキーを作り直す';
+  }
+  if(st === 'network'){
+    return head +
+      '通信が途中で切れました。\n\n' +
+      '電波の良い場所で、もう一度お試しください。\n' +
+      'Wi-Fiに切り替えると通りやすくなります。\n' +
+      '文字起こしは画面に残っているので、録音し直す必要はありません。\n\n' +
+      '試したモデル: ' + tried.join(', ');
   }
   if(isTransient(st)){
     return head +
@@ -1004,7 +1031,7 @@ function blobToBase64(blob){
 async function callGeminiAudio(model, key, base64, mime, prompt){
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/'
     + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key);
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
@@ -1014,7 +1041,7 @@ async function callGeminiAudio(model, key, base64, mime, prompt){
       ]}],
       generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
     })
-  });
+  }, 240000);
   const body = await res.text();
   if(!res.ok){
     const e = new Error(body.slice(0,300));
@@ -1064,7 +1091,7 @@ async function transcribeAudio(blob){
       return out;
     }catch(e){
       lastErr = e;
-      tried.push(m + '(' + (e.status || '?') + ')');
+      tried.push(m + '(' + (e.status === 'network' ? '通信' : (e.status || '不明')) + ')');
       if(!shouldTryNextModel(e.status)) break;
     }
   }
@@ -1091,7 +1118,7 @@ async function summarize(text){
       return { title:'', body: out };
     }catch(e){
       lastErr = e;
-      tried.push(m + '(' + (e.status || '?') + ')');
+      tried.push(m + '(' + (e.status === 'network' ? '通信' : (e.status || '不明')) + ')');
       // 404=モデル名が無効 / 400=リクエスト不正 / 429=枠切れ の場合は次の候補へ
       if(!shouldTryNextModel(e.status)) break;
     }
